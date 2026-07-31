@@ -23,26 +23,28 @@
   <script type="text/babel">
     const { useState, useEffect } = React;
 
-    // === REEMPLAZA AQUÍ TUS CLAVES (Mantén las comillas simples) ===
+    // === TUS CLAVES DE SUPABASE ===
     const SUPABASE_URL = 'https://wwtsegyxdodfhqzpgajn.supabase.co';
     const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3dHNlZ3l4ZG9kZmhxenBnYWpuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU1MTY3NzgsImV4cCI6MjEwMTA5Mjc3OH0.MDb_sVu5vKsdXjL7jm22hO1uXksCZWlYEstBIKO98Cs';
+    
+    // CONTRASEÑA DE ADMINISTRADOR (Cámbiala por la que quieras)
+    const CLAVE_ADMIN = "ruah2026";
 
-    // Inicializar Supabase con verificación
-    let db = null;
-    try {
-      if (typeof supabase !== 'undefined' && SUPABASE_URL.includes('supabase.co')) {
-        db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-      }
-    } catch (e) {
-      console.error("Error al conectar Supabase:", e);
-    }
+    const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     function App() {
       const [seccion, setSeccion] = useState('home');
       const [tickets, setTickets] = useState([]);
+      const [inventario, setInventario] = useState([]);
       const [cargando, setCargando] = useState(false);
       const [mostrarModal, setMostrarModal] = useState(false);
+      
+      // Estado de Administrador
+      const [esAdmin, setEsAdmin] = useState(false);
+      const [mostrarLoginAdmin, setMostrarLoginAdmin] = useState(false);
+      const [passInput, setPassInput] = useState('');
 
+      // Formulario Ticket
       const [nuevoTicket, setNuevoTicket] = useState({
         nombre_voluntario: '',
         apellido_voluntario: '',
@@ -52,107 +54,132 @@
         estado: 'Por revisión'
       });
 
+      // Formulario Inventario
+      const [nuevoItem, setNuevoItem] = useState({ item: '', cantidad: 1, categoria: 'Comida' });
+
       useEffect(() => {
-        if (seccion === 'tickets' && db) {
-          obtenerTickets();
-        }
+        if (seccion === 'tickets') obtenerTickets();
+        if (seccion === 'inventario') obtenerInventario();
       }, [seccion]);
 
       const obtenerTickets = async () => {
         setCargando(true);
-        try {
-          const { data, error } = await db.from('tickets').select('*').order('created_at', { ascending: false });
-          if (error) console.error("Error Supabase:", error);
-          else setTickets(data || []);
-        } catch (err) {
-          console.error("Error al cargar:", err);
-        }
+        const { data } = await db.from('tickets').select('*').order('created_at', { ascending: false });
+        setTickets(data || []);
         setCargando(false);
+      };
+
+      const obtenerInventario = async () => {
+        setCargando(true);
+        const { data } = await db.from('inventario').select('*').order('created_at', { ascending: false });
+        setInventario(data || []);
+        setCargando(false);
+      };
+
+      const cambiarEstadoTicket = async (id, nuevoEstado) => {
+        const { error } = await db.from('tickets').update({ estado: nuevoEstado }).eq('id', id);
+        if (error) alert("Error actualizando ticket: " + error.message);
+        else obtenerTickets();
       };
 
       const guardarTicket = async (e) => {
         e.preventDefault();
-        if (!db) {
-          alert("Base de datos no configurada aún.");
-          return;
-        }
-
-        const { data, error } = await db.from('tickets').insert([nuevoTicket]);
-        
-        if (error) {
-          alert("Error: " + error.message);
-        } else {
-          alert("¡Ticket guardado!");
+        const { error } = await db.from('tickets').insert([nuevoTicket]);
+        if (error) alert("Error: " + error.message);
+        else {
+          alert("¡Ticket enviado con éxito!");
           setMostrarModal(false);
-          setNuevoTicket({
-            nombre_voluntario: '',
-            apellido_voluntario: '',
-            departamento: 'Departamento de Logística',
-            comunidad: '',
-            descripcion: '',
-            estado: 'Por revisión'
-          });
+          setNuevoTicket({ nombre_voluntario: '', apellido_voluntario: '', departamento: 'Departamento de Logística', comunidad: '', descripcion: '', estado: 'Por revisión' });
           obtenerTickets();
+        }
+      };
+
+      const agregarInventario = async (e) => {
+        e.preventDefault();
+        const { error } = await db.from('inventario').insert([nuevoItem]);
+        if (error) alert("Error: " + error.message);
+        else {
+          setNuevoItem({ item: '', cantidad: 1, categoria: 'Comida' });
+          obtenerInventario();
+        }
+      };
+
+      const eliminarItemInventario = async (id) => {
+        if (confirm("¿Seguro de eliminar este ítem?")) {
+          await db.from('inventario').delete().eq('id', id);
+          obtenerInventario();
+        }
+      };
+
+      const loginAdmin = (e) => {
+        e.preventDefault();
+        if (passInput === CLAVE_ADMIN) {
+          setEsAdmin(true);
+          setMostrarLoginAdmin(false);
+          setPassInput('');
+          alert("¡Modo Administrador Activado!");
+        } else {
+          alert("Contraseña incorrecta");
         }
       };
 
       return (
         <div className="flex flex-col md:flex-row min-h-screen">
           
-          <aside className="w-full md:w-64 bg-slate-900 text-white p-6 flex-shrink-0">
-            <h1 className="text-2xl font-bold tracking-wider mb-1 text-blue-400">Fundación Ruah</h1>
-            <p className="text-xs text-slate-400 mb-8">Gestión de Voluntariado</p>
-            
-            <nav className="space-y-2">
-              <button 
-                onClick={() => setSeccion('home')}
-                className={`w-full text-left px-4 py-3 rounded-lg transition ${seccion === 'home' ? 'bg-blue-600 font-semibold' : 'hover:bg-slate-800'}`}>
-                🏠 Home
-              </button>
-              <button 
-                onClick={() => setSeccion('tickets')}
-                className={`w-full text-left px-4 py-3 rounded-lg transition ${seccion === 'tickets' ? 'bg-blue-600 font-semibold' : 'hover:bg-slate-800'}`}>
-                🎟️ Tickets
-              </button>
-              <button 
-                onClick={() => setSeccion('inventario')}
-                className={`w-full text-left px-4 py-3 rounded-lg transition ${seccion === 'inventario' ? 'bg-blue-600 font-semibold' : 'hover:bg-slate-800'}`}>
-                📦 Inventario
-              </button>
-            </nav>
+          {/* Menú Lateral */}
+          <aside className="w-full md:w-64 bg-slate-900 text-white p-6 flex-shrink-0 flex flex-col justify-between">
+            <div>
+              <h1 className="text-2xl font-bold tracking-wider mb-1 text-blue-400">Fundación Ruah</h1>
+              <p className="text-xs text-slate-400 mb-8">Gestión de Voluntariado</p>
+              
+              <nav className="space-y-2">
+                <button onClick={() => setSeccion('home')} className={`w-full text-left px-4 py-3 rounded-lg transition ${seccion === 'home' ? 'bg-blue-600 font-semibold' : 'hover:bg-slate-800'}`}>
+                  🏠 Home
+                </button>
+                <button onClick={() => setSeccion('tickets')} className={`w-full text-left px-4 py-3 rounded-lg transition ${seccion === 'tickets' ? 'bg-blue-600 font-semibold' : 'hover:bg-slate-800'}`}>
+                  🎟️ Tickets
+                </button>
+                <button onClick={() => setSeccion('inventario')} className={`w-full text-left px-4 py-3 rounded-lg transition ${seccion === 'inventario' ? 'bg-blue-600 font-semibold' : 'hover:bg-slate-800'}`}>
+                  📦 Inventario
+                </button>
+              </nav>
+            </div>
+
+            {/* Botón Administrador */}
+            <div className="pt-6 border-t border-slate-800 mt-6">
+              {esAdmin ? (
+                <div className="bg-emerald-900/50 p-3 rounded text-center border border-emerald-500/30">
+                  <span className="text-xs text-emerald-400 font-medium block">Modo Admin Activo</span>
+                  <button onClick={() => setEsAdmin(false)} className="text-[10px] text-gray-400 underline mt-1">Cerrar Sesión</button>
+                </div>
+              ) : (
+                <button onClick={() => setMostrarLoginAdmin(true)} className="w-full text-xs text-slate-400 hover:text-white py-2 text-center transition">
+                  🔒 Acceso Admin
+                </button>
+              )}
+            </div>
           </aside>
 
+          {/* Contenido Principal */}
           <main className="flex-1 p-6 md:p-10 relative">
             
+            {/* HOME */}
             {seccion === 'home' && (
               <div className="max-w-3xl space-y-6">
                 <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-200">
                   <h2 className="text-3xl font-bold text-slate-800 mb-4">¡Bienvenidos a Fundación Ruah!</h2>
                   <p className="text-gray-600 leading-relaxed mb-6">
-                    Somos una organización dedicada a atender las necesidades de nuestras comunidades a través de la acción organizada de nuestros voluntarios e inversionistas.
+                    Atendiendo las necesidades de nuestras comunidades mediante voluntariado transparente.
                   </p>
-                  
                   <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r">
-                    <p className="italic text-blue-900 font-medium">
-                      "Y el Rey les dirá: En verdad os digo que en cuanto lo hicisteis a uno de estos mis hermanos más pequeños, a mí lo hicisteis."
-                    </p>
+                    <p className="italic text-blue-900 font-medium">"Y el Rey les dirá: En verdad os digo que en cuanto lo hicisteis a uno de estos mis hermanos más pequeños, a mí lo hicisteis."</p>
                     <span className="text-xs font-semibold text-blue-700 block mt-2">— Mateo 25:40</span>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                    <h3 className="font-bold text-lg text-slate-800 mb-2">Nuestra Misión</h3>
-                    <p className="text-sm text-gray-600">Canalizar recursos y ayuda directa a sectores vulnerables de forma transparente.</p>
-                  </div>
-                  <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                    <h3 className="font-bold text-lg text-slate-800 mb-2">Nuestra Visión</h3>
-                    <p className="text-sm text-gray-600">Ser una plataforma eficiente de gestión social donde voluntarios e inversionistas colaboren en tiempo real.</p>
                   </div>
                 </div>
               </div>
             )}
 
+            {/* TICKETS */}
             {seccion === 'tickets' && (
               <div className="space-y-6">
                 <div className="flex justify-between items-center">
@@ -160,154 +187,134 @@
                     <h2 className="text-2xl font-bold text-slate-800">Solicitudes y Actividades</h2>
                     <p className="text-xs text-gray-500">Tickets registrados por los voluntarios</p>
                   </div>
-                  <button 
-                    onClick={() => setMostrarModal(true)}
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow-sm">
+                  <button onClick={() => setMostrarModal(true)} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm">
                     + Nuevo Ticket
                   </button>
                 </div>
 
-                {cargando ? (
-                  <p className="text-gray-500 text-sm">Cargando tickets...</p>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
-                      <h3 className="font-semibold text-amber-700 mb-3 flex items-center gap-2">
-                        <span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span> Por revisión
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {['Por revisión', 'Atendiendo', 'Entregado'].map((estadoCol) => (
+                    <div key={estadoCol} className="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                      <h3 className={`font-semibold mb-3 flex items-center gap-2 ${estadoCol === 'Por revisión' ? 'text-amber-700' : estadoCol === 'Atendiendo' ? 'text-blue-700' : 'text-emerald-700'}`}>
+                        {estadoCol}
                       </h3>
                       <div className="space-y-3">
-                        {tickets.filter(t => t.estado === 'Por revisión').map(t => (
+                        {tickets.filter(t => t.estado === estadoCol).map(t => (
                           <div key={t.id} className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 space-y-2">
                             <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">{t.departamento}</span>
                             <h4 className="font-bold text-sm text-gray-800">{t.comunidad}</h4>
                             <p className="text-xs text-gray-600">{t.descripcion}</p>
                             <p className="text-[10px] text-gray-400 pt-2 border-t">Voluntario: {t.nombre_voluntario} {t.apellido_voluntario}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
 
-                    <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
-                      <h3 className="font-semibold text-blue-700 mb-3 flex items-center gap-2">
-                        <span className="w-2.5 h-2.5 rounded-full bg-blue-500"></span> Atendiendo
-                      </h3>
-                      <div className="space-y-3">
-                        {tickets.filter(t => t.estado === 'Atendiendo').map(t => (
-                          <div key={t.id} className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 space-y-2">
-                            <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">{t.departamento}</span>
-                            <h4 className="font-bold text-sm text-gray-800">{t.comunidad}</h4>
-                            <p className="text-xs text-gray-600">{t.descripcion}</p>
-                            <p className="text-[10px] text-gray-400 pt-2 border-t">Voluntario: {t.nombre_voluntario} {t.apellido_voluntario}</p>
+                            {/* BOTONES EXCLUSIVOS DE ADMIN */}
+                            {esAdmin && (
+                              <div className="pt-2 flex gap-1 border-t border-gray-100">
+                                {estadoCol !== 'Por revisión' && (
+                                  <button onClick={() => cambiarEstadoTicket(t.id, 'Por revisión')} className="text-[10px] bg-amber-100 text-amber-800 px-2 py-1 rounded">Mover a Revisión</button>
+                                )}
+                                {estadoCol !== 'Atendiendo' && (
+                                  <button onClick={() => cambiarEstadoTicket(t.id, 'Atendiendo')} className="text-[10px] bg-blue-100 text-blue-800 px-2 py-1 rounded">Atender</button>
+                                )}
+                                {estadoCol !== 'Entregado' && (
+                                  <button onClick={() => cambiarEstadoTicket(t.id, 'Entregado')} className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-1 rounded">Entregado</button>
+                                )}
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>
                     </div>
-
-                    <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
-                      <h3 className="font-semibold text-emerald-700 mb-3 flex items-center gap-2">
-                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> Entregado
-                      </h3>
-                      <div className="space-y-3">
-                        {tickets.filter(t => t.estado === 'Entregado').map(t => (
-                          <div key={t.id} className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 space-y-2">
-                            <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">{t.departamento}</span>
-                            <h4 className="font-bold text-sm text-gray-800">{t.comunidad}</h4>
-                            <p className="text-xs text-gray-600">{t.descripcion}</p>
-                            <p className="text-[10px] text-gray-400 pt-2 border-t">Voluntario: {t.nombre_voluntario} {t.apellido_voluntario}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
+                  ))}
+                </div>
               </div>
             )}
 
+            {/* INVENTARIO */}
             {seccion === 'inventario' && (
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                <h2 className="text-2xl font-bold text-slate-800 mb-2">Inventario de Insumos</h2>
-                <p className="text-gray-500 text-sm">Disponibilidad pública de insumos y donaciones de la fundación.</p>
+              <div className="space-y-6">
+                <h2 className="text-2xl font-bold text-slate-800">Inventario General</h2>
+
+                {/* Formulario Agregar Ítem (Solo Admin) */}
+                {esAdmin && (
+                  <form onSubmit={agregarInventario} className="bg-blue-50 p-4 rounded-xl border border-blue-200 flex flex-col md:flex-row gap-3 items-end">
+                    <div className="flex-1">
+                      <label className="text-xs font-semibold text-blue-900">Insumo / Recurso</label>
+                      <input type="text" required placeholder="Ej: Sacos de Arroz" value={nuevoItem.item} onChange={e => setNuevoItem({...nuevoItem, item: e.target.value})} className="w-full border rounded p-2 text-sm mt-1" />
+                    </div>
+                    <div className="w-24">
+                      <label className="text-xs font-semibold text-blue-900">Cantidad</label>
+                      <input type="number" required min="1" value={nuevoItem.cantidad} onChange={e => setNuevoItem({...nuevoItem, cantidad: parseInt(e.target.value)})} className="w-full border rounded p-2 text-sm mt-1" />
+                    </div>
+                    <button type="submit" className="bg-blue-600 text-white text-sm px-4 py-2 rounded font-medium hover:bg-blue-700">Agregar al Inventario</button>
+                  </form>
+                )}
+
+                {/* Tabla de Inventario */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                  <table className="w-full text-left text-sm">
+                    <thead className="bg-gray-50 border-b text-gray-600">
+                      <tr>
+                        <th className="p-4">Recurso / Insumo</th>
+                        <th className="p-4">Cantidad Disponible</th>
+                        {esAdmin && <th className="p-4 text-right">Acciones</th>}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {inventario.map(item => (
+                        <tr key={item.id}>
+                          <td className="p-4 font-medium text-gray-800">{item.item}</td>
+                          <td className="p-4"><span className="bg-slate-100 text-slate-800 font-bold px-2 py-1 rounded text-xs">{item.cantidad} unidades</span></td>
+                          {esAdmin && (
+                            <td className="p-4 text-right">
+                              <button onClick={() => eliminarItemInventario(item.id)} className="text-red-500 hover:text-red-700 text-xs font-medium">Eliminar</button>
+                            </td>
+                          )}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
 
+            {/* MODAL NUEVO TICKET */}
             {mostrarModal && (
               <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
                 <div className="bg-white rounded-xl p-6 w-full max-w-md space-y-4">
-                  <h3 className="text-xl font-bold text-slate-800">Registrar Solicitud / Ticket</h3>
-                  
+                  <h3 className="text-xl font-bold text-slate-800">Crear Ticket de Solicitud</h3>
                   <form onSubmit={guardarTicket} className="space-y-3">
                     <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="text-xs font-medium text-gray-700">Nombre *</label>
-                        <input 
-                          type="text" 
-                          required
-                          value={nuevoTicket.nombre_voluntario}
-                          onChange={(e) => setNuevoTicket({...nuevoTicket, nombre_voluntario: e.target.value})}
-                          className="w-full border rounded p-2 text-sm mt-1" 
-                        />
-                      </div>
-                      <div>
-                        <label className="text-xs font-medium text-gray-700">Apellido</label>
-                        <input 
-                          type="text" 
-                          value={nuevoTicket.apellido_voluntario}
-                          onChange={(e) => setNuevoTicket({...nuevoTicket, apellido_voluntario: e.target.value})}
-                          className="w-full border rounded p-2 text-sm mt-1" 
-                        />
-                      </div>
+                      <input type="text" required placeholder="Nombre *" value={nuevoTicket.nombre_voluntario} onChange={e => setNuevoTicket({...nuevoTicket, nombre_voluntario: e.target.value})} className="border rounded p-2 text-sm" />
+                      <input type="text" placeholder="Apellido" value={nuevoTicket.apellido_voluntario} onChange={e => setNuevoTicket({...nuevoTicket, apellido_voluntario: e.target.value})} className="border rounded p-2 text-sm" />
                     </div>
-
-                    <div>
-                      <label className="text-xs font-medium text-gray-700">Departamento</label>
-                      <select 
-                        value={nuevoTicket.departamento}
-                        onChange={(e) => setNuevoTicket({...nuevoTicket, departamento: e.target.value})}
-                        className="w-full border rounded p-2 text-sm mt-1">
-                        <option>Departamento Transporte</option>
-                        <option>Departamento de Logística</option>
-                        <option>Departamento de Comida</option>
-                        <option>Departamento Inversionistas</option>
-                        <option>Departamento de Traductores</option>
-                      </select>
+                    <select value={nuevoTicket.departamento} onChange={e => setNuevoTicket({...nuevoTicket, departamento: e.target.value})} className="w-full border rounded p-2 text-sm">
+                      <option>Departamento Transporte</option>
+                      <option>Departamento de Logística</option>
+                      <option>Departamento de Comida</option>
+                      <option>Departamento Inversionistas</option>
+                      <option>Departamento de Traductores</option>
+                    </select>
+                    <input type="text" required placeholder="Comunidad / Sector *" value={nuevoTicket.comunidad} onChange={e => setNuevoTicket({...nuevoTicket, comunidad: e.target.value})} className="w-full border rounded p-2 text-sm" />
+                    <textarea required placeholder="¿Qué ayuda se necesita?" value={nuevoTicket.descripcion} onChange={e => setNuevoTicket({...nuevoTicket, descripcion: e.target.value})} className="w-full border rounded p-2 text-sm" rows="3"></textarea>
+                    <div className="flex justify-end gap-2 pt-2">
+                      <button type="button" onClick={() => setMostrarModal(false)} className="px-4 py-2 text-xs text-gray-500">Cancelar</button>
+                      <button type="submit" className="px-4 py-2 text-xs bg-blue-600 text-white rounded font-medium">Guardar Ticket</button>
                     </div>
+                  </form>
+                </div>
+              </div>
+            )}
 
-                    <div>
-                      <label className="text-xs font-medium text-gray-700">Comunidad / Sector *</label>
-                      <input 
-                        type="text" 
-                        required
-                        placeholder="Ej: Barrio El Carmen, Calle 4"
-                        value={nuevoTicket.comunidad}
-                        onChange={(e) => setNuevoTicket({...nuevoTicket, comunidad: e.target.value})}
-                        className="w-full border rounded p-2 text-sm mt-1" 
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-xs font-medium text-gray-700">Descripción de la necesidad *</label>
-                      <textarea 
-                        required
-                        rows="3"
-                        placeholder="¿Qué ayuda se necesita exactamente?"
-                        value={nuevoTicket.descripcion}
-                        onChange={(e) => setNuevoTicket({...nuevoTicket, descripcion: e.target.value})}
-                        className="w-full border rounded p-2 text-sm mt-1"
-                      ></textarea>
-                    </div>
-
-                    <div className="flex justify-end gap-2 pt-3">
-                      <button 
-                        type="button" 
-                        onClick={() => setMostrarModal(false)}
-                        className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded">
-                        Cancelar
-                      </button>
-                      <button 
-                        type="submit" 
-                        className="px-4 py-2 text-sm bg-blue-600 text-white rounded font-medium hover:bg-blue-700">
-                        Guardar Ticket
-                      </button>
+            {/* MODAL LOGIN ADMIN */}
+            {mostrarLoginAdmin && (
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+                <div className="bg-white rounded-xl p-6 w-full max-w-xs space-y-4 text-center">
+                  <h3 className="text-lg font-bold text-slate-800">Acceso Administrador</h3>
+                  <form onSubmit={loginAdmin} className="space-y-3">
+                    <input type="password" placeholder="Contraseña de Admin" value={passInput} onChange={e => setPassInput(e.target.value)} className="w-full border rounded p-2 text-sm text-center" />
+                    <div className="flex justify-center gap-2">
+                      <button type="button" onClick={() => setMostrarLoginAdmin(false)} className="px-3 py-1.5 text-xs text-gray-500">Cancelar</button>
+                      <button type="submit" className="px-3 py-1.5 text-xs bg-slate-900 text-white rounded font-medium">Entrar</button>
                     </div>
                   </form>
                 </div>
