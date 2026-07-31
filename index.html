@@ -5,15 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Fundación Ruah</title>
   
-  <!-- Tailwind CSS para el diseño -->
+  <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   
-  <!-- React y Babel para la lógica visual -->
+  <!-- React y Babel -->
   <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   
-  <!-- Supabase para la base de datos -->
+  <!-- Supabase JS -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body class="bg-gray-100 text-gray-800 font-sans">
@@ -21,23 +21,82 @@
   <div id="root"></div>
 
   <script type="text/babel">
-    const { useState } = React;
+    const { useState, useEffect } = React;
 
-    // Aquí colocarás las claves gratuitas que te dé Supabase
+    // === TUS CLAVES DE SUPABASE ===
     const SUPABASE_URL = 'https://wwtsegyxdodfhqzpgajn.supabase.co';
     const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3dHNlZ3l4ZG9kZmhxenBnYWpuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU1MTY3NzgsImV4cCI6MjEwMTA5Mjc3OH0.MDb_sVu5vKsdXjL7jm22hO1uXksCZWlYEstBIKO98Cs';
-    const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    
+    // Inicializar Supabase
+    const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     function App() {
       const [seccion, setSeccion] = useState('home');
+      const [tickets, setTickets] = useState([]);
+      const [cargando, setCargando] = useState(false);
+      const [mostrarModal, setMostrarModal] = useState(false);
+
+      // Estado del Formulario
+      const [nuevoTicket, setNuevoTicket] = useState({
+        nombre_voluntario: '',
+        apellido_voluntario: '',
+        departamento: 'Departamento de Logística',
+        comunidad: '',
+        descripcion: '',
+        estado: 'Por revisión'
+      });
+
+      // Cargar tickets de Supabase al iniciar o cambiar a la sección tickets
+      useEffect(() => {
+        if (seccion === 'tickets') {
+          obtenerTickets();
+        }
+      }, [seccion]);
+
+      const obtenerTickets = async () => {
+        setCargando(true);
+        const { data, error } = await db.from('tickets').select('*').order('created_at', { ascending: false });
+        if (error) {
+          console.error("Error al obtener tickets:", error);
+        } else {
+          setTickets(data || []);
+        }
+        setCargando(false);
+      };
+
+      const guardarTicket = async (e) => {
+        e.preventDefault();
+        if (!nuevoTicket.nombre_voluntario || !nuevoTicket.comunidad || !nuevoTicket.descripcion) {
+          alert("Por favor completa los campos obligatorios");
+          return;
+        }
+
+        const { data, error } = await db.from('tickets').insert([nuevoTicket]);
+        
+        if (error) {
+          alert("Error al crear el ticket: " + error.message);
+        } else {
+          alert("¡Ticket creado con éxito!");
+          setMostrarModal(false);
+          setNuevoTicket({
+            nombre_voluntario: '',
+            apellido_voluntario: '',
+            departamento: 'Departamento de Logística',
+            comunidad: '',
+            descripcion: '',
+            estado: 'Por revisión'
+          });
+          obtenerTickets(); // Recargar la lista
+        }
+      };
 
       return (
         <div class="flex flex-col md:flex-row min-h-screen">
           
           <!-- Menú Lateral -->
           <aside class="w-full md:w-64 bg-slate-900 text-white p-6 flex-shrink-0">
-            <h1 class="text-2xl font-bold tracking-wider mb-2 text-blue-400">Fundación Ruah</h1>
-            <p class="text-xs text-slate-400 mb-8">Servicio y Voluntariado</p>
+            <h1 class="text-2xl font-bold tracking-wider mb-1 text-blue-400">Fundación Ruah</h1>
+            <p class="text-xs text-slate-400 mb-8">Gestión de Voluntariado</p>
             
             <nav class="space-y-2">
               <button 
@@ -58,7 +117,8 @@
             </nav>
           </aside>
 
-          <main class="flex-1 p-6 md:p-10">
+         
+          <main class="flex-1 p-6 md:p-10 relative">
             
             {/* SECCIÓN HOME */}
             {seccion === 'home' && (
@@ -66,7 +126,7 @@
                 <div class="bg-white p-8 rounded-xl shadow-sm border border-gray-200">
                   <h2 class="text-3xl font-bold text-slate-800 mb-4">¡Bienvenidos a Fundación Ruah!</h2>
                   <p class="text-gray-600 leading-relaxed mb-6">
-                    Somos una organización dedicada a conectar necesidades reales de las comunidades con personas dispuestas a ayudar.
+                    Somos una organización dedicada a atender las necesidades de nuestras comunidades a través de la acción organizada de nuestros voluntarios e inversionistas.
                   </p>
                   
                   <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r">
@@ -79,12 +139,12 @@
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                    <h3 class="font-bold text-lg text-slate-800 mb-2">Misión</h3>
-                    <p class="text-sm text-gray-600">Llevar asistencia, recursos y esperanza a las comunidades vulnerables a través de la acción voluntaria ordenada.</p>
+                    <h3 class="font-bold text-lg text-slate-800 mb-2">Nuestra Misión</h3>
+                    <p class="text-sm text-gray-600">Canalizar recursos y ayuda directa a sectores vulnerables de forma transparente.</p>
                   </div>
                   <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                    <h3 class="font-bold text-lg text-slate-800 mb-2">Visión</h3>
-                    <p class="text-sm text-gray-600">Ser un puente transparente y eficiente entre donantes, voluntarios y quienes más lo necesitan.</p>
+                    <h3 class="font-bold text-lg text-slate-800 mb-2">Nuestra Visión</h3>
+                    <p class="text-sm text-gray-600">Ser una plataforma eficiente de gestión social donde voluntarios e inversionistas colaboren en tiempo real.</p>
                   </div>
                 </div>
               </div>
@@ -94,44 +154,168 @@
             {seccion === 'tickets' && (
               <div class="space-y-6">
                 <div class="flex justify-between items-center">
-                  <h2 class="text-2xl font-bold text-slate-800">Solicitudes y Actividades</h2>
-                  <button class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
-                    + Crear Ticket
+                  <div>
+                    <h2 class="text-2xl font-bold text-slate-800">Solicitudes y Actividades</h2>
+                    <p class="text-xs text-gray-500">Tickets registrados por los voluntarios</p>
+                  </div>
+                  <button 
+                    onClick={() => setMostrarModal(true)}
+                    class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow-sm">
+                    + Nuevo Ticket
                   </button>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div class="bg-gray-50 p-4 rounded-xl border border-gray-200">
-                    <h3 class="font-semibold text-amber-700 mb-3 flex items-center gap-2">
-                      <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span> Por revisión
-                    </h3>
-                    <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200 space-y-2">
-                      <span class="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded">Dep. Comida</span>
-                      <h4 class="font-bold text-sm">Ayuda alimentaria en Barrio El Carmen</h4>
-                      <p class="text-xs text-gray-500">Reportado por: Pedro Pérez</p>
+                {cargando ? (
+                  <p class="text-gray-500 text-sm">Cargando tickets de la base de datos...</p>
+                ) : (
+                  <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    
+                    {/* Columna Por Revisión */}
+                    <div class="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                      <h3 class="font-semibold text-amber-700 mb-3 flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span> Por revisión
+                      </h3>
+                      <div class="space-y-3">
+                        {tickets.filter(t => t.estado === 'Por revisión').map(t => (
+                          <div key={t.id} class="bg-white p-4 rounded-lg shadow-sm border border-gray-200 space-y-2">
+                            <span class="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">{t.departamento}</span>
+                            <h4 class="font-bold text-sm text-gray-800">{t.comunidad}</h4>
+                            <p class="text-xs text-gray-600">{t.descripcion}</p>
+                            <p class="text-[10px] text-gray-400 pt-2 border-t">Voluntario: {t.nombre_voluntario} {t.apellido_voluntario}</p>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  </div>
 
-                  <div class="bg-gray-50 p-4 rounded-xl border border-gray-200">
-                    <h3 class="font-semibold text-blue-700 mb-3 flex items-center gap-2">
-                      <span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span> Atendiendo
-                    </h3>
-                  </div>
+                    {/* Columna Atendiendo */}
+                    <div class="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                      <h3 class="font-semibold text-blue-700 mb-3 flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span> Atendiendo
+                      </h3>
+                      <div class="space-y-3">
+                        {tickets.filter(t => t.estado === 'Atendiendo').map(t => (
+                          <div key={t.id} class="bg-white p-4 rounded-lg shadow-sm border border-gray-200 space-y-2">
+                            <span class="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">{t.departamento}</span>
+                            <h4 class="font-bold text-sm text-gray-800">{t.comunidad}</h4>
+                            <p class="text-xs text-gray-600">{t.descripcion}</p>
+                            <p class="text-[10px] text-gray-400 pt-2 border-t">Voluntario: {t.nombre_voluntario} {t.apellido_voluntario}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
 
-                  <div class="bg-gray-50 p-4 rounded-xl border border-gray-200">
-                    <h3 class="font-semibold text-emerald-700 mb-3 flex items-center gap-2">
-                      <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> Entregado
-                    </h3>
+                    {/* Columna Entregado */}
+                    <div class="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                      <h3 class="font-semibold text-emerald-700 mb-3 flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> Entregado
+                      </h3>
+                      <div class="space-y-3">
+                        {tickets.filter(t => t.estado === 'Entregado').map(t => (
+                          <div key={t.id} class="bg-white p-4 rounded-lg shadow-sm border border-gray-200 space-y-2">
+                            <span class="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">{t.departamento}</span>
+                            <h4 class="font-bold text-sm text-gray-800">{t.comunidad}</h4>
+                            <p class="text-xs text-gray-600">{t.descripcion}</p>
+                            <p class="text-[10px] text-gray-400 pt-2 border-t">Voluntario: {t.nombre_voluntario} {t.apellido_voluntario}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
                   </div>
-                </div>
+                )}
               </div>
             )}
 
             {/* SECCIÓN INVENTARIO */}
             {seccion === 'inventario' && (
               <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                <h2 class="text-2xl font-bold text-slate-800 mb-4">Inventario General</h2>
-                <p class="text-gray-500 text-sm">Próximamente lista de insumos disponibles...</p>
+                <h2 class="text-2xl font-bold text-slate-800 mb-2">Inventario de Insumos</h2>
+                <p class="text-gray-500 text-sm">Disponibilidad pública de insumos y donaciones de la fundación.</p>
+              </div>
+            )}
+
+            {/* MODAL CREAR TICKET */}
+            {mostrarModal && (
+              <div class="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+                <div class="bg-white rounded-xl p-6 w-full max-w-md space-y-4">
+                  <h3 class="text-xl font-bold text-slate-800">Registrar Solicitud / Ticket</h3>
+                  
+                  <form onSubmit={guardarTicket} class="space-y-3">
+                    <div class="grid grid-cols-2 gap-2">
+                      <div>
+                        <label class="text-xs font-medium text-gray-700">Nombre *</label>
+                        <input 
+                          type="text" 
+                          required
+                          value={nuevoTicket.nombre_voluntario}
+                          onChange={(e) => setNuevoTicket({...nuevoTicket, nombre_voluntario: e.target.value})}
+                          class="w-full border rounded p-2 text-sm mt-1" 
+                        />
+                      </div>
+                      <div>
+                        <label class="text-xs font-medium text-gray-700">Apellido</label>
+                        <input 
+                          type="text" 
+                          value={nuevoTicket.apellido_voluntario}
+                          onChange={(e) => setNuevoTicket({...nuevoTicket, apellido_voluntario: e.target.value})}
+                          class="w-full border rounded p-2 text-sm mt-1" 
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label class="text-xs font-medium text-gray-700">Departamento</label>
+                      <select 
+                        value={nuevoTicket.departamento}
+                        onChange={(e) => setNuevoTicket({...nuevoTicket, departamento: e.target.value})}
+                        class="w-full border rounded p-2 text-sm mt-1">
+                        <option>Departamento Transporte</option>
+                        <option>Departamento de Logística</option>
+                        <option>Departamento de Comida</option>
+                        <option>Departamento Inversionistas</option>
+                        <option>Departamento de Traductores</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label class="text-xs font-medium text-gray-700">Comunidad / Sector *</label>
+                      <input 
+                        type="text" 
+                        required
+                        placeholder="Ej: Barrio El Carmen, Calle 4"
+                        value={nuevoTicket.comunidad}
+                        onChange={(e) => setNuevoTicket({...nuevoTicket, comunidad: e.target.value})}
+                        class="w-full border rounded p-2 text-sm mt-1" 
+                      />
+                    </div>
+
+                    <div>
+                      <label class="text-xs font-medium text-gray-700">Descripción de la necesidad *</label>
+                      <textarea 
+                        required
+                        rows="3"
+                        placeholder="¿Qué ayuda se necesita exactamente?"
+                        value={nuevoTicket.descripcion}
+                        onChange={(e) => setNuevoTicket({...nuevoTicket, descripcion: e.target.value})}
+                        class="w-full border rounded p-2 text-sm mt-1"
+                      ></textarea>
+                    </div>
+
+                    <div class="flex justify-end gap-2 pt-3">
+                      <button 
+                        type="button" 
+                        onClick={() => setMostrarModal(false)}
+                        class="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded">
+                        Cancelar
+                      </button>
+                      <button 
+                        type="submit" 
+                        class="px-4 py-2 text-sm bg-blue-600 text-white rounded font-medium hover:bg-blue-700">
+                        Guardar Ticket
+                      </button>
+                    </div>
+                  </form>
+                </div>
               </div>
             )}
 
