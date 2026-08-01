@@ -177,8 +177,6 @@
       // Filtrado de tickets por fecha y cola pendiente
       const ticketsFiltrados = tickets.filter(t => {
         const fechaTicket = t.created_at ? t.created_at.split('T')[0] : '';
-        // Si está en entregado o atendiendo, respeta la fecha seleccionada o se muestra en su día.
-        // Los pendientes no resueltos se muestran en la cola activa.
         return fechaTicket === fechaFiltroTicket || t.estado !== 'Entregado';
       });
 
@@ -379,6 +377,7 @@
                   {inventario
                     .filter(item => categoriaInventario === 'Todas' || item.categoria === categoriaInventario)
                     .map(item => {
+                      // Regla de stock: Si es mayor a 2 está disponible, si es 2 o menos se muestra no disponible (reserva de seguridad)
                       const estaDisponible = item.cantidad > 2;
                       return (
                         <div 
@@ -396,15 +395,21 @@
                               <span className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-[10px] font-medium">
                                 {item.categoria || 'General'}
                               </span>
+                              
+                              {/* VISTA SEGÚN ROL: Admin ve número exacto / Usuario normal ve etiqueta Disponible o No disponible */}
                               {esAdmin ? (
                                 <span className="text-xs font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded">
-                                  {item.cantidad} u.
+                                  {item.cantidad} u. (Admin)
                                 </span>
                               ) : (
                                 estaDisponible ? (
-                                  <span className="bg-green-100 text-green-800 font-bold px-2 py-0.5 rounded-full text-[10px]">Disponible</span>
+                                  <span className="bg-green-100 text-green-800 font-bold px-2.5 py-0.5 rounded-full text-[10px]">
+                                    Disponible
+                                  </span>
                                 ) : (
-                                  <span className="bg-red-100 text-red-800 font-bold px-2 py-0.5 rounded-full text-[10px]">Agotado</span>
+                                  <span className="bg-red-100 text-red-800 font-bold px-2.5 py-0.5 rounded-full text-[10px]">
+                                    No disponible
+                                  </span>
                                 )
                               )}
                             </div>
@@ -447,10 +452,21 @@
                     <h3 className="text-xl font-bold text-slate-800">{itemSeleccionado.item}</h3>
                     <p className="text-sm text-gray-600 mt-2 leading-relaxed">{itemSeleccionado.descripcion || 'No hay descripción adicional para este insumo.'}</p>
                   </div>
+                  
+                  {/* Stock en modal: solo visible o restringido según admin */}
                   <div className="bg-gray-50 p-3 rounded-lg flex justify-between items-center text-sm font-semibold">
-                    <span className="text-gray-600">Stock Actual:</span>
-                    <span className="text-blue-600">{itemSeleccionado.cantidad} unidades</span>
+                    <span className="text-gray-600">Estado del Recurso:</span>
+                    {esAdmin ? (
+                      <span className="text-blue-600">{itemSeleccionado.cantidad} unidades (Control Admin)</span>
+                    ) : (
+                      itemSeleccionado.cantidad > 2 ? (
+                        <span className="text-green-600">Disponible</span>
+                      ) : (
+                        <span className="text-red-600">No disponible / En reserva</span>
+                      )
+                    )}
                   </div>
+
                   <div className="flex justify-end pt-2">
                     <button onClick={() => setItemSeleccionado(null)} className="bg-slate-900 text-white text-xs px-4 py-2 rounded-lg font-medium">Cerrar</button>
                   </div>
