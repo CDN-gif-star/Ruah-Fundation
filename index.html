@@ -377,7 +377,6 @@
                   {inventario
                     .filter(item => categoriaInventario === 'Todas' || item.categoria === categoriaInventario)
                     .map(item => {
-                      // Regla de stock: Si es mayor a 2 está disponible, si es 2 o menos se muestra no disponible (reserva de seguridad)
                       const estaDisponible = item.cantidad > 2;
                       return (
                         <div 
@@ -396,7 +395,6 @@
                                 {item.categoria || 'General'}
                               </span>
                               
-                              {/* VISTA SEGÚN ROL: Admin ve número exacto / Usuario normal ve etiqueta Disponible o No disponible */}
                               {esAdmin ? (
                                 <span className="text-xs font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded">
                                   {item.cantidad} u. (Admin)
@@ -430,12 +428,12 @@
                           </div>
                         </div>
                       );
-                  })}
+                    })}
                 </div>
               </div>
             )}
 
-            {/* MODAL DETALLE DE ITEM (VENTANA FLOTANTE) */}
+            {/* MODAL DETALLE DE ITEM */}
             {itemSeleccionado && (
               <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
                 <div className="bg-white rounded-2xl p-6 w-full max-w-md space-y-4 shadow-xl">
@@ -453,7 +451,6 @@
                     <p className="text-sm text-gray-600 mt-2 leading-relaxed">{itemSeleccionado.descripcion || 'No hay descripción adicional para este insumo.'}</p>
                   </div>
                   
-                  {/* Stock en modal: solo visible o restringido según admin */}
                   <div className="bg-gray-50 p-3 rounded-lg flex justify-between items-center text-sm font-semibold">
                     <span className="text-gray-600">Estado del Recurso:</span>
                     {esAdmin ? (
