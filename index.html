@@ -36,6 +36,7 @@
       const [seccion, setSeccion] = useState('home');
       const [tickets, setTickets] = useState([]);
       const [inventario, setInventario] = useState([]);
+      const [albumes, setAlbumes] = useState([]);
       const [cargando, setCargando] = useState(false);
       const [mostrarModal, setMostrarModal] = useState(false);
       
@@ -50,6 +51,13 @@
       const [ticketAEntregar, setTicketAEntregar] = useState(null);   // Modal subir foto de entrega
       const [fotoEntregaFile, setFotoEntregaFile] = useState(null);
       const [fechaFiltroTicket, setFechaFiltroTicket] = useState(new Date().toISOString().split('T')[0]);
+
+      // Estados para Álbumes
+      const [albumSeleccionado, setAlbumSeleccionado] = useState(null);
+      const [fotosAlbumActual, setFotosAlbumActual] = useState([]);
+      const [nuevoAlbum, setNuevoAlbum] = useState({ titulo: '' });
+      const [fotoPortadaFile, setFotoPortadaFile] = useState(null);
+      const [fotoAdicionalFile, setFotoAdicionalFile] = useState(null);
 
       // Formulario Ticket
       const [nuevoTicket, setNuevoTicket] = useState({
@@ -72,6 +80,7 @@
       const [fotoItemFile, setFotoItemFile] = useState(null);
 
       useEffect(() => {
+        if (seccion === 'home') obtenerAlbumes();
         if (seccion === 'tickets') obtenerTickets();
         if (seccion === 'inventario') obtenerInventario();
       }, [seccion]);
@@ -90,6 +99,18 @@
         setCargando(false);
       };
 
+      const obtenerAlbumes = async () => {
+        setCargando(true);
+        const { data } = await db.from('albumes').select('*').order('created_at', { ascending: false });
+        setAlbumes(data || []);
+        setCargando(false);
+      };
+
+      const obtenerFotosAlbum = async (albumId) => {
+        const { data } = await db.from('fotos_album').select('*').eq('album_id', albumId).order('created_at', { ascending: false });
+        setFotosAlbumActual(data || []);
+      };
+
       // Función auxiliar para subir archivos al Storage de Supabase
       const subirImagenStorage = async (file) => {
         if (!file) return null;
@@ -101,6 +122,45 @@
         }
         const { data: urlData } = db.storage.from('proyecto-ruah').getPublicUrl(nombreArchivo);
         return urlData.publicUrl;
+      };
+
+      const crearAlbum = async (e) => {
+        e.preventDefault();
+        if (!fotoPortadaFile) {
+          alert("Debes seleccionar una foto de portada para el álbum.");
+          return;
+        }
+        setCargando(true);
+        const urlPortada = await subirImagenStorage(fotoPortadaFile);
+        
+        const { error } = await db.from('albumes').insert([{ titulo: nuevoAlbum.titulo, imagen_url: urlPortada }]);
+        setCargando(false);
+        if (error) {
+          alert("Error al crear álbum: " + error.message);
+        } else {
+          alert("¡Álbum creado con éxito!");
+          setNuevoAlbum({ titulo: '' });
+          setFotoPortadaFile(null);
+          obtenerAlbumes();
+        }
+      };
+
+      const agregarFotoAAlbum = async (e) => {
+        e.preventDefault();
+        if (!fotoAdicionalFile || !albumSeleccionado) return;
+        setCargando(true);
+        const urlFoto = await subirImagenStorage(fotoAdicionalFile);
+
+        const { error } = await db.from('fotos_album').insert([{ album_id: albumSeleccionado.id, imagen_url: urlFoto }]);
+        setCargando(false);
+        if (error) {
+          alert("Error al subir la foto: " + error.message);
+        } else {
+          alert("¡Foto agregada al álbum!");
+          setFotoAdicionalFile(null);
+          e.target.reset();
+          obtenerFotosAlbum(albumSeleccionado.id);
+        }
       };
 
       const cambiarEstadoTicket = async (id, nuevoEstado, fotoUrl = null) => {
@@ -222,7 +282,7 @@
             
             {/* HOME */}
             {seccion === 'home' && (
-              <div className="max-w-3xl space-y-6">
+              <div className="max-w-5xl space-y-8">
                 <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-200">
                   <h2 className="text-3xl font-bold text-slate-800 mb-4">¡Bienvenidos a Proyecto Ruah!</h2>
                   <p className="text-gray-600 leading-relaxed mb-6">
@@ -231,6 +291,57 @@
                   <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r">
                     <p className="italic text-blue-900 font-medium">"Y el Rey les dirá: En verdad os digo que en cuanto lo hicisteis a uno de estos mis hermanos más pequeños, a mí lo hicisteis."</p>
                     <span className="text-xs font-semibold text-blue-700 block mt-2">— Mateo 25:40</span>
+                  </div>
+                </div>
+
+                {/* SECCIÓN DE ÁLBUMES DE FOTOS */}
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <h3 className="text-2xl font-bold text-slate-800">Galería de Álbumes</h3>
+                      <p className="text-xs text-gray-500">Momentos y evidencias fotográficas de nuestra labor</p>
+                    </div>
+                  </div>
+
+                  {/* Formulario Crear Álbum (Solo Admin) */}
+                  {esAdmin && (
+                    <form onSubmit={crearAlbum} className="bg-blue-50 p-4 rounded-xl border border-blue-200 space-y-3">
+                      <h4 className="text-sm font-bold text-blue-900">Crear Nuevo Álbum (Admin)</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-xs font-semibold text-blue-900">Título del Álbum *</label>
+                          <input type="text" required placeholder="Ej: Jornada Médica Comunitaria" value={nuevoAlbum.titulo} onChange={e => setNuevoAlbum({...nuevoAlbum, titulo: e.target.value})} className="w-full border rounded p-2 text-sm mt-1 bg-white" />
+                        </div>
+                        <div>
+                          <label className="text-xs font-semibold text-blue-900">Foto de Portada *</label>
+                          <input type="file" required accept="image/*" onChange={e => setFotoPortadaFile(e.target.files[0])} className="w-full border rounded p-1 text-xs mt-1 bg-white file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:bg-blue-100 file:text-blue-700" />
+                        </div>
+                      </div>
+                      <div className="flex justify-end">
+                        <button type="submit" disabled={cargando} className="bg-blue-600 text-white text-xs px-4 py-2 rounded font-medium hover:bg-blue-700">
+                          {cargando ? 'Creando...' : 'Crear Álbum'}
+                        </button>
+                      </div>
+                    </form>
+                  )}
+
+                  {/* Tarjetas de Álbumes */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+                    {albumes.map(album => (
+                      <div 
+                        key={album.id}
+                        onClick={() => { setAlbumSeleccionado(album); obtenerFotosAlbum(album.id); }}
+                        className="bg-white rounded-xl shadow-xs border border-gray-200 overflow-hidden cursor-pointer hover:shadow-md transition group flex flex-col justify-between"
+                      >
+                        <div className="w-full h-48 bg-gray-100 overflow-hidden">
+                          <img src={album.imagen_url} alt={album.titulo} className="w-full h-full object-cover group-hover:scale-105 transition duration-300" />
+                        </div>
+                        <div className="p-4">
+                          <h4 className="font-bold text-gray-800 text-base">{album.titulo}</h4>
+                          <span className="text-[10px] text-blue-600 font-medium group-hover:underline mt-1 block">Ver fotos del álbum ➔</span>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>
@@ -429,6 +540,48 @@
                         </div>
                       );
                     })}
+                </div>
+              </div>
+            )}
+
+            {/* MODAL DETALLE DE ÁLBUM (FOTOS) */}
+            {albumSeleccionado && (
+              <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
+                <div className="bg-white rounded-2xl p-6 w-full max-w-3xl space-y-4 shadow-xl max-h-[90vh] overflow-y-auto">
+                  <div className="flex justify-between items-center border-b pb-2">
+                    <h3 className="text-xl font-bold text-slate-800">{albumSeleccionado.titulo}</h3>
+                    <button onClick={() => setAlbumSeleccionado(null)} className="text-gray-400 hover:text-gray-700 text-lg font-bold">✕</button>
+                  </div>
+
+                  {/* Formulario Agregar Foto al Álbum (Solo Admin) */}
+                  {esAdmin && (
+                    <form onSubmit={agregarFotoAAlbum} className="bg-blue-50 p-3 rounded-lg border border-blue-200 flex flex-col md:flex-row items-center gap-3">
+                      <div className="flex-1 w-full">
+                        <label className="text-xs font-semibold text-blue-900 block mb-1">Agregar foto al álbum (Admin):</label>
+                        <input type="file" required accept="image/*" onChange={e => setFotoAdicionalFile(e.target.files[0])} className="w-full border rounded p-1 text-xs bg-white file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:bg-blue-100 file:text-blue-700" />
+                      </div>
+                      <button type="submit" disabled={cargando} className="bg-blue-600 text-white text-xs px-4 py-2 rounded font-medium hover:bg-blue-700 h-9 self-end">
+                        {cargando ? 'Subiendo...' : 'Subir Foto'}
+                      </button>
+                    </form>
+                  )}
+
+                  {/* Cuadrícula de Fotos del Álbum */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {fotosAlbumActual.length > 0 ? (
+                      fotosAlbumActual.map(foto => (
+                        <div key={foto.id} className="h-40 bg-gray-100 rounded-lg overflow-hidden shadow-inner">
+                          <img src={foto.imagen_url} alt="Foto de álbum" className="w-full h-full object-cover hover:scale-105 transition duration-300" />
+                        </div>
+                      ))
+                    ) : (
+                      <p className="col-span-full text-center text-xs text-gray-500 py-6">No hay fotos en este álbum todavía.</p>
+                    )}
+                  </div>
+
+                  <div className="flex justify-end pt-2">
+                    <button onClick={() => setAlbumSeleccionado(null)} className="bg-slate-900 text-white text-xs px-4 py-2 rounded-lg font-medium">Cerrar</button>
+                  </div>
                 </div>
               </div>
             )}
