@@ -3,16 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Proyecto Ruah</title>
+  <title>Fundación Ruah</title>
   
-<link rel="icon" type="image/png" href="https://wwtsegyxdodfhqzpgajn.supabase.co/storage/v1/object/public/proyecto-ruah/Ruah%20logo%20png.png">
-
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   
   <!-- React y Babel -->
-  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin crossorigin="anonymous"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   
   <!-- Supabase JS -->
@@ -29,6 +27,14 @@
     const SUPABASE_URL = 'https://wwtsegyxdodfhqzpgajn.supabase.co';
     const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3dHNlZ3l4ZG9kZmhxenBnYWpuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU1MTY3NzgsImV4cCI6MjEwMTA5Mjc3OH0.MDb_sVu5vKsdXjL7jm22hO1uXksCZWlYEstBIKO98Cs';
     
+    // === ENLACES CSV DE LOS GOOGLE SHEETS POR DEPARTAMENTO ===
+    const URLS_VOLUNTARIOS = [
+      'https://docs.google.com/spreadsheets/d/e/2PACX-1vSC1qCHZrURes_1bVKlr6nnrMNLXqkj50J6hjH9TvpVsySpnNq5REvgcbUQfXZqFob_jQ8uT_A2Y2qt/pub?output=csv', // Administrativo y Comunicaciones
+      'https://docs.google.com/spreadsheets/d/e/2PACX-1vRHqdXWibNn84wo0MOkfBJZpaA9sbXyC_Y_fMsNADcinC1XD6iQL2X38PwBi2Y-kimdmio1p6kDbM0P/pub?output=csv', // Logística y Transporte
+      'https://docs.google.com/spreadsheets/d/e/2PACX-1vRMgDgHLQJ4Vu3LWoKTWUREc6N1C3eAw1yjvFLqIYNGp21waqHJaECritHXj-mi7sVYrBMV7OmIbdUM/pub?output=csv', // Traductores e Intérpretes
+      'https://docs.google.com/spreadsheets/d/e/2PACX-1vR2OU1pvEKVDzEFEe4i58GB2JmxwL3M7q_nZCLKJo1jLM5xKiImVba1YufKLS1QC0M2ARz11FLVdVUT/pub?output=csv'  // Salud
+    ];
+
     // CONTRASEÑA DE ADMINISTRADOR
     const CLAVE_ADMIN = "ruah2026";
 
@@ -38,7 +44,6 @@
       const [seccion, setSeccion] = useState('home');
       const [tickets, setTickets] = useState([]);
       const [inventario, setInventario] = useState([]);
-      const [albumes, setAlbumes] = useState([]);
       const [cargando, setCargando] = useState(false);
       const [mostrarModal, setMostrarModal] = useState(false);
       
@@ -47,42 +52,27 @@
       const [mostrarLoginAdmin, setMostrarLoginAdmin] = useState(false);
       const [passInput, setPassInput] = useState('');
 
-      // Nuevos estados para Filtros, Modales de Detalles y Fotos
-      const [categoriaInventario, setCategoriaInventario] = useState('Todas');
-      const [itemSeleccionado, setItemSeleccionado] = useState(null); // Modal detalle inventario
-      const [ticketAEntregar, setTicketAEntregar] = useState(null);   // Modal subir foto de entrega
-      const [fotoEntregaFile, setFotoEntregaFile] = useState(null);
-      const [fechaFiltroTicket, setFechaFiltroTicket] = useState(new Date().toISOString().split('T')[0]);
-
-      // Estados para Álbumes
-      const [albumSeleccionado, setAlbumSeleccionado] = useState(null);
-      const [fotosAlbumActual, setFotosAlbumActual] = useState([]);
-      const [nuevoAlbum, setNuevoAlbum] = useState({ titulo: '' });
-      const [fotoPortadaFile, setFotoPortadaFile] = useState(null);
-      const [fotoAdicionalFile, setFotoAdicionalFile] = useState(null);
-
-      // Formulario Ticket
+      // Formulario Ticket Completo
       const [nuevoTicket, setNuevoTicket] = useState({
         nombre_voluntario: '',
         apellido_voluntario: '',
-        departamento: 'Departamento de Logística',
+        situacion_caso: '',
+        ciudad: '',
         comunidad: '',
+        fue_verificado: 'No',
         descripcion: '',
+        persona_contacto: '',
+        telefono_contacto: '',
+        responsable_seguimiento: '',
+        telefono_responsable: '',
+        departamento: 'Departamento de Logística',
         estado: 'Por revisión'
       });
 
-      // Formulario Inventario con descripción y foto
-      const [nuevoItem, setNuevoItem] = useState({ 
-        item: '', 
-        cantidad: 1, 
-        categoria: 'Comida', 
-        descripcion: '', 
-        imagen_url: '' 
-      });
-      const [fotoItemFile, setFotoItemFile] = useState(null);
+      // Formulario Inventario
+      const [nuevoItem, setNuevoItem] = useState({ item: '', cantidad: 1, categoria: 'Comida' });
 
       useEffect(() => {
-        if (seccion === 'home') obtenerAlbumes();
         if (seccion === 'tickets') obtenerTickets();
         if (seccion === 'inventario') obtenerInventario();
       }, [seccion]);
@@ -101,118 +91,86 @@
         setCargando(false);
       };
 
-      const obtenerAlbumes = async () => {
-        setCargando(true);
-        const { data } = await db.from('albumes').select('*').order('created_at', { ascending: false });
-        setAlbumes(data || []);
-        setCargando(false);
-      };
-
-      const obtenerFotosAlbum = async (albumId) => {
-        const { data } = await db.from('fotos_album').select('*').eq('album_id', albumId).order('created_at', { ascending: false });
-        setFotosAlbumActual(data || []);
-      };
-
-      // Función auxiliar para subir archivos al Storage de Supabase
-      const subirImagenStorage = async (file) => {
-        if (!file) return null;
-        const nombreArchivo = `${Date.now()}_${file.name}`;
-        const { data, error } = await db.storage.from('proyecto-ruah').upload(nombreArchivo, file);
-        if (error) {
-          alert("Error al subir la imagen: " + error.message);
-          return null;
-        }
-        const { data: urlData } = db.storage.from('proyecto-ruah').getPublicUrl(nombreArchivo);
-        return urlData.publicUrl;
-      };
-
-      const crearAlbum = async (e) => {
-        e.preventDefault();
-        if (!fotoPortadaFile) {
-          alert("Debes seleccionar una foto de portada para el álbum.");
-          return;
-        }
-        setCargando(true);
-        const urlPortada = await subirImagenStorage(fotoPortadaFile);
-        
-        const { error } = await db.from('albumes').insert([{ titulo: nuevoAlbum.titulo, imagen_url: urlPortada }]);
-        setCargando(false);
-        if (error) {
-          alert("Error al crear álbum: " + error.message);
-        } else {
-          alert("¡Álbum creado con éxito!");
-          setNuevoAlbum({ titulo: '' });
-          setFotoPortadaFile(null);
-          obtenerAlbumes();
-        }
-      };
-
-      const agregarFotoAAlbum = async (e) => {
-        e.preventDefault();
-        if (!fotoAdicionalFile || !albumSeleccionado) return;
-        setCargando(true);
-        const urlFoto = await subirImagenStorage(fotoAdicionalFile);
-
-        const { error } = await db.from('fotos_album').insert([{ album_id: albumSeleccionado.id, imagen_url: urlFoto }]);
-        setCargando(false);
-        if (error) {
-          alert("Error al subir la foto: " + error.message);
-        } else {
-          alert("¡Foto agregada al álbum!");
-          setFotoAdicionalFile(null);
-          e.target.reset();
-          obtenerFotosAlbum(albumSeleccionado.id);
-        }
-      };
-
-      const cambiarEstadoTicket = async (id, nuevoEstado, fotoUrl = null) => {
-        const updateData = { estado: nuevoEstado };
-        if (fotoUrl) updateData.foto_entrega_url = fotoUrl;
-
-        const { error } = await db.from('tickets').update(updateData).eq('id', id);
+      const cambiarEstadoTicket = async (id, nuevoEstado) => {
+        const { error } = await db.from('tickets').update({ estado: nuevoEstado }).eq('id', id);
         if (error) alert("Error actualizando ticket: " + error.message);
-        else {
-          obtenerTickets();
-          setTicketAEntregar(null);
-          setFotoEntregaFile(null);
+        else obtenerTickets();
+      };
+
+      // Validar si el voluntario está registrado en cualquiera de los 4 Google Sheets
+      const validarVoluntarioEnSheet = async (nombre, apellido) => {
+        const busquedaNombre = nombre.toLowerCase().trim();
+        const busquedaApellido = apellido ? apellido.toLowerCase().trim() : '';
+
+        for (const url of URLS_VOLUNTARIOS) {
+          try {
+            const res = await fetch(url);
+            const texto = await res.text();
+            const textoMinuscula = texto.toLowerCase();
+
+            const tieneNombre = textoMinuscula.includes(busquedaNombre);
+            const tieneApellido = busquedaApellido ? textoMinuscula.includes(busquedaApellido) : true;
+
+            if (tieneNombre && tieneApellido) {
+              return true; // Se encontró en alguno de los departamentos
+            }
+          } catch (e) {
+            console.error("Error al consultar lista de voluntarios:", e);
+          }
         }
+
+        return false; // No se encontró en ningún departamento
       };
 
       const guardarTicket = async (e) => {
         e.preventDefault();
+        setCargando(true);
+
+        // Validar voluntario en las listas
+        const estaRegistrado = await validarVoluntarioEnSheet(
+          nuevoTicket.nombre_voluntario, 
+          nuevoTicket.apellido_voluntario
+        );
+
+        if (!estaRegistrado) {
+          setCargando(false);
+          alert("⚠️ ATENCIÓN: No apareces registrado como voluntario en ningún departamento de la Fundación Ruah. Por favor comunícate con un coordinador para inscribirte antes de crear un ticket.");
+          return;
+        }
+
         const { error } = await db.from('tickets').insert([nuevoTicket]);
-        if (error) alert("Error: " + error.message);
-        else {
-          alert("¡Ticket enviado con éxito!");
+        setCargando(false);
+
+        if (error) {
+          alert("Error al guardar ticket: " + error.message);
+        } else {
+          alert("¡Ticket registrado con éxito!");
           setMostrarModal(false);
-          setNuevoTicket({ nombre_voluntario: '', apellido_voluntario: '', departamento: 'Departamento de Logística', comunidad: '', descripcion: '', estado: 'Por revisión' });
+          setNuevoTicket({
+            nombre_voluntario: '',
+            apellido_voluntario: '',
+            situacion_caso: '',
+            ciudad: '',
+            comunidad: '',
+            fue_verificado: 'No',
+            descripcion: '',
+            persona_contacto: '',
+            telefono_contacto: '',
+            responsable_seguimiento: '',
+            telefono_responsable: '',
+            departamento: 'Departamento de Logística',
+            estado: 'Por revisión'
+          });
           obtenerTickets();
         }
       };
 
       const agregarInventario = async (e) => {
         e.preventDefault();
-        setCargando(true);
-        let urlImagen = '';
-        if (fotoItemFile) {
-          urlImagen = await subirImagenStorage(fotoItemFile);
-        }
-
-        const itemParaGuardar = {
-          item: nuevoItem.item,
-          cantidad: nuevoItem.cantidad,
-          categoria: nuevoItem.categoria,
-          descripcion: nuevoItem.descripcion,
-          imagen_url: urlImagen
-        };
-
-        const { error } = await db.from('inventario').insert([itemParaGuardar]);
-        setCargando(false);
+        const { error } = await db.from('inventario').insert([nuevoItem]);
         if (error) alert("Error: " + error.message);
         else {
-          alert("¡Ítem agregado al inventario correctamente!");
-          setNuevoItem({ item: '', cantidad: 1, categoria: 'Comida', descripcion: '', imagen_url: '' });
-          setFotoItemFile(null);
+          setNuevoItem({ item: '', cantidad: 1, categoria: 'Comida' });
           obtenerInventario();
         }
       };
@@ -230,17 +188,11 @@
           setEsAdmin(true);
           setMostrarLoginAdmin(false);
           setPassInput('');
-          alert("¡Bienvenido administrador, ya ingresaste!");
+          alert("¡Modo Administrador Activado!");
         } else {
           alert("Contraseña incorrecta");
         }
       };
-
-      // Filtrado de tickets por fecha y cola pendiente
-      const ticketsFiltrados = tickets.filter(t => {
-        const fechaTicket = t.created_at ? t.created_at.split('T')[0] : '';
-        return fechaTicket === fechaFiltroTicket || t.estado !== 'Entregado';
-      });
 
       return (
         <div className="flex flex-col md:flex-row min-h-screen">
@@ -248,7 +200,7 @@
           {/* Menú Lateral */}
           <aside className="w-full md:w-64 bg-slate-900 text-white p-6 flex-shrink-0 flex flex-col justify-between">
             <div>
-              <h1 className="text-2xl font-bold tracking-wider mb-1 text-blue-400">Proyecto Ruah</h1>
+              <h1 className="text-2xl font-bold tracking-wider mb-1 text-blue-400">Fundación Ruah</h1>
               <p className="text-xs text-slate-400 mb-8">Gestión de Voluntariado</p>
               
               <nav className="space-y-2">
@@ -256,7 +208,7 @@
                   🏠 Home
                 </button>
                 <button onClick={() => setSeccion('tickets')} className={`w-full text-left px-4 py-3 rounded-lg transition ${seccion === 'tickets' ? 'bg-blue-600 font-semibold' : 'hover:bg-slate-800'}`}>
-                  🎟️ Tickets y Colas
+                  🎟️ Tickets
                 </button>
                 <button onClick={() => setSeccion('inventario')} className={`w-full text-left px-4 py-3 rounded-lg transition ${seccion === 'inventario' ? 'bg-blue-600 font-semibold' : 'hover:bg-slate-800'}`}>
                   📦 Inventario
@@ -284,9 +236,9 @@
             
             {/* HOME */}
             {seccion === 'home' && (
-              <div className="max-w-5xl space-y-8">
+              <div className="max-w-3xl space-y-6">
                 <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-200">
-                  <h2 className="text-3xl font-bold text-slate-800 mb-4">¡Bienvenidos a Proyecto Ruah!</h2>
+                  <h2 className="text-3xl font-bold text-slate-800 mb-4">¡Bienvenidos a Fundación Ruah!</h2>
                   <p className="text-gray-600 leading-relaxed mb-6">
                     Atendiendo las necesidades de nuestras comunidades mediante voluntariado transparente.
                   </p>
@@ -295,112 +247,46 @@
                     <span className="text-xs font-semibold text-blue-700 block mt-2">— Mateo 25:40</span>
                   </div>
                 </div>
-
-                {/* SECCIÓN DE ÁLBUMES DE FOTOS */}
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <h3 className="text-2xl font-bold text-slate-800">Galería de Álbumes</h3>
-                      <p className="text-xs text-gray-500">Momentos y evidencias fotográficas de nuestra labor</p>
-                    </div>
-                  </div>
-
-                  {/* Formulario Crear Álbum (Solo Admin) */}
-                  {esAdmin && (
-                    <form onSubmit={crearAlbum} className="bg-blue-50 p-4 rounded-xl border border-blue-200 space-y-3">
-                      <h4 className="text-sm font-bold text-blue-900">Crear Nuevo Álbum (Admin)</h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <div>
-                          <label className="text-xs font-semibold text-blue-900">Título del Álbum *</label>
-                          <input type="text" required placeholder="Ej: Jornada Médica Comunitaria" value={nuevoAlbum.titulo} onChange={e => setNuevoAlbum({...nuevoAlbum, titulo: e.target.value})} className="w-full border rounded p-2 text-sm mt-1 bg-white" />
-                        </div>
-                        <div>
-                          <label className="text-xs font-semibold text-blue-900">Foto de Portada *</label>
-                          <input type="file" required accept="image/*" onChange={e => setFotoPortadaFile(e.target.files[0])} className="w-full border rounded p-1 text-xs mt-1 bg-white file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:bg-blue-100 file:text-blue-700" />
-                        </div>
-                      </div>
-                      <div className="flex justify-end">
-                        <button type="submit" disabled={cargando} className="bg-blue-600 text-white text-xs px-4 py-2 rounded font-medium hover:bg-blue-700">
-                          {cargando ? 'Creando...' : 'Crear Álbum'}
-                        </button>
-                      </div>
-                    </form>
-                  )}
-
-                  {/* Tarjetas de Álbumes */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-                    {albumes.map(album => (
-                      <div 
-                        key={album.id}
-                        onClick={() => { setAlbumSeleccionado(album); obtenerFotosAlbum(album.id); }}
-                        className="bg-white rounded-xl shadow-xs border border-gray-200 overflow-hidden cursor-pointer hover:shadow-md transition group flex flex-col justify-between"
-                      >
-                        <div className="w-full h-48 bg-gray-100 overflow-hidden">
-                          <img src={album.imagen_url} alt={album.titulo} className="w-full h-full object-cover group-hover:scale-105 transition duration-300" />
-                        </div>
-                        <div className="p-4">
-                          <h4 className="font-bold text-gray-800 text-base">{album.titulo}</h4>
-                          <span className="text-[10px] text-blue-600 font-medium group-hover:underline mt-1 block">Ver fotos del álbum ➔</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
               </div>
             )}
 
-            {/* TICKETS CON CALENDARIO E HISTORIAL */}
+            {/* TICKETS */}
             {seccion === 'tickets' && (
               <div className="space-y-6">
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                <div className="flex justify-between items-center">
                   <div>
-                    <h2 className="text-2xl font-bold text-slate-800">Solicitudes, Colas y Calendario</h2>
-                    <p className="text-xs text-gray-500">Gestión de tickets por fecha y seguimiento diario</p>
+                    <h2 className="text-2xl font-bold text-slate-800">Solicitudes y Casos</h2>
+                    <p className="text-xs text-gray-500">Tickets de atención comunitaria</p>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-2 bg-gray-50 p-2 rounded-lg border">
-                      <span className="text-xs font-semibold text-gray-600">📅 Fecha:</span>
-                      <input 
-                        type="date" 
-                        value={fechaFiltroTicket} 
-                        onChange={e => setFechaFiltroTicket(e.target.value)} 
-                        className="text-xs border rounded p-1 bg-white"
-                      />
-                    </div>
-                    <button onClick={() => setMostrarModal(true)} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm">
-                      + Nuevo Ticket
-                    </button>
-                  </div>
+                  <button onClick={() => setMostrarModal(true)} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm">
+                    + Registrar Caso / Ticket
+                  </button>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   {['Por revisión', 'Atendiendo', 'Entregado'].map((estadoCol) => (
                     <div key={estadoCol} className="bg-gray-50 p-4 rounded-xl border border-gray-200">
-                      <h3 className={`font-semibold mb-3 flex items-center justify-between ${estadoCol === 'Por revisión' ? 'text-amber-700' : estadoCol === 'Atendiendo' ? 'text-blue-700' : 'text-emerald-700'}`}>
-                        <span>{estadoCol}</span>
-                        <span className="text-xs bg-white px-2 py-0.5 rounded-full border shadow-2xs">
-                          {ticketsFiltrados.filter(t => t.estado === estadoCol).length}
-                        </span>
+                      <h3 className={`font-semibold mb-3 flex items-center gap-2 ${estadoCol === 'Por revisión' ? 'text-amber-700' : estadoCol === 'Atendiendo' ? 'text-blue-700' : 'text-emerald-700'}`}>
+                        {estadoCol}
                       </h3>
                       <div className="space-y-3">
-                        {ticketsFiltrados.filter(t => t.estado === estadoCol).map(t => (
+                        {tickets.filter(t => t.estado === estadoCol).map(t => (
                           <div key={t.id} className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 space-y-2">
-                            <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">{t.departamento}</span>
-                            <h4 className="font-bold text-sm text-gray-800">{t.comunidad}</h4>
-                            <p className="text-xs text-gray-600">{t.descripcion}</p>
-                            
-                            {/* Constancia de Foto en Entregado */}
-                            {t.foto_entrega_url && (
-                              <div className="mt-2">
-                                <a href={t.foto_entrega_url} target="_blank" rel="noreferrer" className="text-[10px] text-blue-600 underline font-medium flex items-center gap-1">
-                                  📸 Ver foto de entrega constancia
-                                </a>
-                              </div>
-                            )}
+                            <div className="flex justify-between items-start">
+                              <span className="text-[10px] font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">{t.departamento}</span>
+                              <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${t.fue_verificado === 'Sí' ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-600'}`}>
+                                {t.fue_verificado === 'Sí' ? '✓ Verificado' : 'Sin verificar'}
+                              </span>
+                            </div>
 
-                            <div className="flex justify-between items-center text-[10px] text-gray-400 pt-2 border-t">
-                              <span>Voluntario: {t.nombre_voluntario} {t.apellido_voluntario}</span>
-                              <span>{t.created_at ? t.created_at.split('T')[0] : ''}</span>
+                            <h4 className="font-bold text-sm text-gray-800">{t.situacion_caso || t.comunidad}</h4>
+                            <p className="text-xs text-gray-500 font-medium">📍 {t.ciudad ? `${t.ciudad} - ` : ''}{t.comunidad}</p>
+                            <p className="text-xs text-gray-600 leading-relaxed bg-gray-50 p-2 rounded">{t.descripcion}</p>
+
+                            <div className="text-[11px] text-gray-500 pt-2 border-t space-y-1">
+                              {t.persona_contacto && <p>👤 <strong>Contacto:</strong> {t.persona_contacto} {t.telefono_contacto ? `(${t.telefono_contacto})` : ''}</p>}
+                              {t.responsable_seguimiento && <p>📋 <strong>Responsable:</strong> {t.responsable_seguimiento} {t.telefono_responsable ? `(${t.telefono_responsable})` : ''}</p>}
+                              <p className="text-[10px] text-gray-400">Registrado por: {t.nombre_voluntario} {t.apellido_voluntario}</p>
                             </div>
 
                             {/* BOTONES EXCLUSIVOS DE ADMIN */}
@@ -413,7 +299,7 @@
                                   <button onClick={() => cambiarEstadoTicket(t.id, 'Atendiendo')} className="text-[10px] bg-blue-100 text-blue-800 px-2 py-1 rounded">Atender</button>
                                 )}
                                 {estadoCol !== 'Entregado' && (
-                                  <button onClick={() => setTicketAEntregar(t.id)} className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-1 rounded font-bold">Marcar Entregado + Foto</button>
+                                  <button onClick={() => cambiarEstadoTicket(t.id, 'Entregado')} className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-1 rounded">Entregado</button>
                                 )}
                               </div>
                             )}
@@ -426,268 +312,112 @@
               </div>
             )}
 
-            {/* INVENTARIO CON CATEGORÍAS Y FOTOS */}
+            {/* INVENTARIO */}
             {seccion === 'inventario' && (
               <div className="space-y-6">
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                  <h2 className="text-2xl font-bold text-slate-800">Inventario y Recursos</h2>
-                  
-                  {/* Pestañas de Categorías */}
-                  <div className="flex flex-wrap gap-1 bg-white p-1 rounded-lg border shadow-xs">
-                    {['Todas', 'Comida', 'Ropa', 'Medicinas', 'Herramientas', 'Otros'].map(cat => (
-                      <button 
-                        key={cat} 
-                        onClick={() => setCategoriaInventario(cat)}
-                        className={`px-3 py-1.5 rounded-md text-xs font-medium transition ${categoriaInventario === cat ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'}`}
-                      >
-                        {cat}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                <h2 className="text-2xl font-bold text-slate-800">Inventario General</h2>
 
-                {/* Formulario Agregar Ítem (Solo Admin) con subida de foto */}
+                {/* Formulario Agregar Ítem (Solo Admin) */}
                 {esAdmin && (
-                  <form onSubmit={agregarInventario} className="bg-blue-50 p-4 rounded-xl border border-blue-200 space-y-3">
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                      <div>
-                        <label className="text-xs font-semibold text-blue-900">Insumo / Recurso *</label>
-                        <input type="text" required placeholder="Ej: Arroz" value={nuevoItem.item} onChange={e => setNuevoItem({...nuevoItem, item: e.target.value})} className="w-full border rounded p-2 text-sm mt-1 bg-white" />
-                      </div>
-                      <div>
-                        <label className="text-xs font-semibold text-blue-900">Categoría</label>
-                        <select value={nuevoItem.categoria} onChange={e => setNuevoItem({...nuevoItem, categoria: e.target.value})} className="w-full border rounded p-2 text-sm mt-1 bg-white">
-                          <option value="Comida">Comida</option>
-                          <option value="Ropa">Ropa</option>
-                          <option value="Medicinas">Medicinas</option>
-                          <option value="Herramientas">Herramientas</option>
-                          <option value="Otros">Otros</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="text-xs font-semibold text-blue-900">Cantidad *</label>
-                        <input type="number" required min="0" value={nuevoItem.cantidad} onChange={e => setNuevoItem({...nuevoItem, cantidad: parseInt(e.target.value)})} className="w-full border rounded p-2 text-sm mt-1 bg-white" />
-                      </div>
-                      <div>
-                        <label className="text-xs font-semibold text-blue-900">Foto del Insumo</label>
-                        <input type="file" accept="image/*" onChange={e => setFotoItemFile(e.target.files[0])} className="w-full border rounded p-1 text-xs mt-1 bg-white file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:bg-blue-100 file:text-blue-700" />
-                      </div>
+                  <form onSubmit={agregarInventario} className="bg-blue-50 p-4 rounded-xl border border-blue-200 flex flex-col md:flex-row gap-3 items-end">
+                    <div className="flex-1">
+                      <label className="text-xs font-semibold text-blue-900">Insumo / Recurso</label>
+                      <input type="text" required placeholder="Ej: Sacos de Arroz" value={nuevoItem.item} onChange={e => setNuevoItem({...nuevoItem, item: e.target.value})} className="w-full border rounded p-2 text-sm mt-1" />
                     </div>
-                    <div>
-                      <label className="text-xs font-semibold text-blue-900">Breve Descripción</label>
-                      <input type="text" placeholder="Ej: Sacos de 20kg donados por fundación..." value={nuevoItem.descripcion} onChange={e => setNuevoItem({...nuevoItem, descripcion: e.target.value})} className="w-full border rounded p-2 text-sm mt-1 bg-white" />
+                    <div className="w-24">
+                      <label className="text-xs font-semibold text-blue-900">Cantidad</label>
+                      <input type="number" required min="1" value={nuevoItem.cantidad} onChange={e => setNuevoItem({...nuevoItem, cantidad: parseInt(e.target.value)})} className="w-full border rounded p-2 text-sm mt-1" />
                     </div>
-                    <div className="flex justify-end">
-                      <button type="submit" disabled={cargando} className="bg-blue-600 text-white text-sm px-5 py-2 rounded font-medium hover:bg-blue-700">
-                        {cargando ? 'Guardando...' : 'Agregar al Inventario'}
-                      </button>
-                    </div>
+                    <button type="submit" className="bg-blue-600 text-white text-sm px-4 py-2 rounded font-medium hover:bg-blue-700">Agregar al Inventario</button>
                   </form>
                 )}
 
-                {/* Cuadrícula de Tarjetas de Inventario */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                  {inventario
-                    .filter(item => categoriaInventario === 'Todas' || item.categoria === categoriaInventario)
-                    .map(item => {
-                      const estaDisponible = item.cantidad > 2;
-                      return (
-                        <div 
-                          key={item.id} 
-                          onClick={() => setItemSeleccionado(item)}
-                          className="bg-white rounded-xl shadow-xs border border-gray-200 p-4 flex flex-col justify-between cursor-pointer hover:shadow-md transition group"
-                        >
-                          <div>
-                            {item.imagen_url && (
-                              <div className="w-full h-32 bg-gray-100 rounded-lg mb-3 overflow-hidden">
-                                <img src={item.imagen_url} alt={item.item} className="w-full h-full object-cover group-hover:scale-105 transition duration-300" />
-                              </div>
-                            )}
-                            <div className="flex justify-between items-start mb-1">
-                              <span className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-[10px] font-medium">
-                                {item.categoria || 'General'}
-                              </span>
-                              
-                              {esAdmin ? (
-                                <span className="text-xs font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded">
-                                  {item.cantidad} u. (Admin)
-                                </span>
-                              ) : (
-                                estaDisponible ? (
-                                  <span className="bg-green-100 text-green-800 font-bold px-2.5 py-0.5 rounded-full text-[10px]">
-                                    Disponible
-                                  </span>
-                                ) : (
-                                  <span className="bg-red-100 text-red-800 font-bold px-2.5 py-0.5 rounded-full text-[10px]">
-                                    No disponible
-                                  </span>
-                                )
-                              )}
-                            </div>
-                            <h3 className="font-bold text-gray-800 text-base mt-2">{item.item}</h3>
-                            <p className="text-xs text-gray-500 line-clamp-2 mt-1">{item.descripcion || 'Sin descripción detallada.'}</p>
-                          </div>
-
-                          <div className="pt-3 mt-3 border-t flex justify-between items-center">
-                            <span className="text-[10px] text-blue-600 font-medium group-hover:underline">Ver detalles 🔍</span>
-                            {esAdmin && (
-                              <button 
-                                onClick={(e) => { e.stopPropagation(); eliminarItemInventario(item.id); }} 
-                                className="text-red-500 hover:text-red-700 text-xs font-medium"
-                              >
-                                Eliminar
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                </div>
-              </div>
-            )}
-
-            {/* MODAL DETALLE DE ÁLBUM (FOTOS) */}
-            {albumSeleccionado && (
-              <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
-                <div className="bg-white rounded-2xl p-6 w-full max-w-3xl space-y-4 shadow-xl max-h-[90vh] overflow-y-auto">
-                  <div className="flex justify-between items-center border-b pb-2">
-                    <h3 className="text-xl font-bold text-slate-800">{albumSeleccionado.titulo}</h3>
-                    <button onClick={() => setAlbumSeleccionado(null)} className="text-gray-400 hover:text-gray-700 text-lg font-bold">✕</button>
-                  </div>
-
-                  {/* Formulario Agregar Foto al Álbum (Solo Admin) */}
-                  {esAdmin && (
-                    <form onSubmit={agregarFotoAAlbum} className="bg-blue-50 p-3 rounded-lg border border-blue-200 flex flex-col md:flex-row items-center gap-3">
-                      <div className="flex-1 w-full">
-                        <label className="text-xs font-semibold text-blue-900 block mb-1">Agregar foto al álbum (Admin):</label>
-                        <input type="file" required accept="image/*" onChange={e => setFotoAdicionalFile(e.target.files[0])} className="w-full border rounded p-1 text-xs bg-white file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:bg-blue-100 file:text-blue-700" />
-                      </div>
-                      <button type="submit" disabled={cargando} className="bg-blue-600 text-white text-xs px-4 py-2 rounded font-medium hover:bg-blue-700 h-9 self-end">
-                        {cargando ? 'Subiendo...' : 'Subir Foto'}
-                      </button>
-                    </form>
-                  )}
-
-                  {/* Cuadrícula de Fotos del Álbum */}
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    {fotosAlbumActual.length > 0 ? (
-                      fotosAlbumActual.map(foto => (
-                        <div key={foto.id} className="h-40 bg-gray-100 rounded-lg overflow-hidden shadow-inner">
-                          <img src={foto.imagen_url} alt="Foto de álbum" className="w-full h-full object-cover hover:scale-105 transition duration-300" />
-                        </div>
-                      ))
-                    ) : (
-                      <p className="col-span-full text-center text-xs text-gray-500 py-6">No hay fotos en este álbum todavía.</p>
-                    )}
-                  </div>
-
-                  <div className="flex justify-end pt-2">
-                    <button onClick={() => setAlbumSeleccionado(null)} className="bg-slate-900 text-white text-xs px-4 py-2 rounded-lg font-medium">Cerrar</button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* MODAL DETALLE DE ITEM */}
-            {itemSeleccionado && (
-              <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
-                <div className="bg-white rounded-2xl p-6 w-full max-w-md space-y-4 shadow-xl">
-                  <div className="flex justify-between items-center border-b pb-2">
-                    <span className="bg-blue-100 text-blue-800 text-xs px-2.5 py-1 rounded-full font-bold">{itemSeleccionado.categoria}</span>
-                    <button onClick={() => setItemSeleccionado(null)} className="text-gray-400 hover:text-gray-700 text-lg font-bold">✕</button>
-                  </div>
-                  {itemSeleccionado.imagen_url && (
-                    <div className="w-full h-56 bg-gray-100 rounded-xl overflow-hidden shadow-inner">
-                      <img src={itemSeleccionado.imagen_url} alt={itemSeleccionado.item} className="w-full h-full object-cover" />
-                    </div>
-                  )}
-                  <div>
-                    <h3 className="text-xl font-bold text-slate-800">{itemSeleccionado.item}</h3>
-                    <p className="text-sm text-gray-600 mt-2 leading-relaxed">{itemSeleccionado.descripcion || 'No hay descripción adicional para este insumo.'}</p>
-                  </div>
-                  
-                  <div className="bg-gray-50 p-3 rounded-lg flex justify-between items-center text-sm font-semibold">
-                    <span className="text-gray-600">Estado del Recurso:</span>
-                    {esAdmin ? (
-                      <span className="text-blue-600">{itemSeleccionado.cantidad} unidades (Control Admin)</span>
-                    ) : (
-                      itemSeleccionado.cantidad > 2 ? (
-                        <span className="text-green-600">Disponible</span>
-                      ) : (
-                        <span className="text-red-600">No disponible / En reserva</span>
-                      )
-                    )}
-                  </div>
-
-                  <div className="flex justify-end pt-2">
-                    <button onClick={() => setItemSeleccionado(null)} className="bg-slate-900 text-white text-xs px-4 py-2 rounded-lg font-medium">Cerrar</button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* MODAL SUBIR FOTO DE ENTREGA */}
-            {ticketAEntregar && (
-              <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
-                <div className="bg-white rounded-2xl p-6 w-full max-w-sm space-y-4 shadow-xl">
-                  <h3 className="text-lg font-bold text-slate-800">Constancia de Entrega</h3>
-                  <p className="text-xs text-gray-500">Sube una foto comprobante de que se entregó el apoyo con éxito a la comunidad.</p>
-                  
-                  <div>
-                    <label className="text-xs font-semibold text-gray-700 block mb-1">Seleccionar Foto:</label>
-                    <input 
-                      type="file" 
-                      accept="image/*" 
-                      onChange={e => setFotoEntregaFile(e.target.files[0])} 
-                      className="w-full border rounded p-2 text-xs bg-gray-50" 
-                    />
-                  </div>
-
-                  <div className="flex justify-end gap-2 pt-3">
-                    <button type="button" onClick={() => { setTicketAEntregar(null); setFotoEntregaFile(null); }} className="px-3 py-2 text-xs text-gray-500">Cancelar</button>
-                    <button 
-                      type="button" 
-                      onClick={async () => {
-                        setCargando(true);
-                        let urlFoto = null;
-                        if (fotoEntregaFile) {
-                          urlFoto = await subirImagenStorage(fotoEntregaFile);
-                        }
-                        setCargando(false);
-                        cambiarEstadoTicket(ticketAEntregar, 'Entregado', urlFoto);
-                      }} 
-                      disabled={cargando}
-                      className="px-4 py-2 text-xs bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700"
-                    >
-                      {cargando ? 'Subiendo...' : 'Confirmar Entrega'}
-                    </button>
-                  </div>
+                {/* Tabla de Inventario */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                  <table className="w-full text-left text-sm">
+                    <thead className="bg-gray-50 border-b text-gray-600">
+                      <tr>
+                        <th className="p-4">Recurso / Insumo</th>
+                        <th className="p-4">Cantidad Disponible</th>
+                        {esAdmin && <th className="p-4 text-right">Acciones</th>}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {inventario.map(item => (
+                        <tr key={item.id}>
+                          <td className="p-4 font-medium text-gray-800">{item.item}</td>
+                          <td className="p-4"><span className="bg-slate-100 text-slate-800 font-bold px-2 py-1 rounded text-xs">{item.cantidad} unidades</span></td>
+                          {esAdmin && (
+                            <td className="p-4 text-right">
+                              <button onClick={() => eliminarItemInventario(item.id)} className="text-red-500 hover:text-red-700 text-xs font-medium">Eliminar</button>
+                            </td>
+                          )}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             )}
 
             {/* MODAL NUEVO TICKET */}
             {mostrarModal && (
-              <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-                <div className="bg-white rounded-xl p-6 w-full max-w-md space-y-4">
-                  <h3 className="text-xl font-bold text-slate-800">Crear Ticket de Solicitud</h3>
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto">
+                <div className="bg-white rounded-xl p-6 w-full max-w-lg space-y-4 my-8">
+                  <h3 className="text-xl font-bold text-slate-800 border-b pb-2">Registrar Nuevo Ticket / Caso</h3>
+                  
                   <form onSubmit={guardarTicket} className="space-y-3">
-                    <div className="grid grid-cols-2 gap-2">
-                      <input type="text" required placeholder="Nombre *" value={nuevoTicket.nombre_voluntario} onChange={e => setNuevoTicket({...nuevoTicket, nombre_voluntario: e.target.value})} className="border rounded p-2 text-sm" />
-                      <input type="text" placeholder="Apellido" value={nuevoTicket.apellido_voluntario} onChange={e => setNuevoTicket({...nuevoTicket, apellido_voluntario: e.target.value})} className="border rounded p-2 text-sm" />
+                    
+                    {/* Datos del Voluntario */}
+                    <div className="bg-gray-50 p-3 rounded-lg space-y-2 border">
+                      <p className="text-xs font-bold text-gray-700">Datos del Voluntario Registrante</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        <input type="text" required placeholder="Nombre voluntario *" value={nuevoTicket.nombre_voluntario} onChange={e => setNuevoTicket({...nuevoTicket, nombre_voluntario: e.target.value})} className="border rounded p-2 text-sm" />
+                        <input type="text" placeholder="Apellido voluntario" value={nuevoTicket.apellido_voluntario} onChange={e => setNuevoTicket({...nuevoTicket, apellido_voluntario: e.target.value})} className="border rounded p-2 text-sm" />
+                      </div>
                     </div>
-                    <select value={nuevoTicket.departamento} onChange={e => setNuevoTicket({...nuevoTicket, departamento: e.target.value})} className="w-full border rounded p-2 text-sm">
-                      <option>Departamento Transporte</option>
-                      <option>Departamento de Logística</option>
-                      <option>Departamento de Comida</option>
-                      <option>Departamento Inversionistas</option>
-                      <option>Departamento de Traductores</option>
-                    </select>
-                    <input type="text" required placeholder="Comunidad / Sector *" value={nuevoTicket.comunidad} onChange={e => setNuevoTicket({...nuevoTicket, comunidad: e.target.value})} className="w-full border rounded p-2 text-sm" />
-                    <textarea required placeholder="¿Qué ayuda se necesita?" value={nuevoTicket.descripcion} onChange={e => setNuevoTicket({...nuevoTicket, descripcion: e.target.value})} className="w-full border rounded p-2 text-sm" rows="3"></textarea>
-                    <div className="flex justify-end gap-2 pt-2">
+
+                    {/* Datos del Caso */}
+                    <input type="text" required placeholder="Situación o Caso (Título breve) *" value={nuevoTicket.situacion_caso} onChange={e => setNuevoTicket({...nuevoTicket, situacion_caso: e.target.value})} className="w-full border rounded p-2 text-sm" />
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <input type="text" required placeholder="Ciudad *" value={nuevoTicket.ciudad} onChange={e => setNuevoTicket({...nuevoTicket, ciudad: e.target.value})} className="border rounded p-2 text-sm" />
+                      <input type="text" required placeholder="Lugar / Sector / Comunidad *" value={nuevoTicket.comunidad} onChange={e => setNuevoTicket({...nuevoTicket, comunidad: e.target.value})} className="border rounded p-2 text-sm" />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <select value={nuevoTicket.departamento} onChange={e => setNuevoTicket({...nuevoTicket, departamento: e.target.value})} className="border rounded p-2 text-sm">
+                        <option>Departamento Transporte</option>
+                        <option>Departamento de Logística</option>
+                        <option>Departamento de Comida</option>
+                        <option>Departamento Inversionistas</option>
+                        <option>Departamento de Traductores</option>
+                      </select>
+                      <select value={nuevoTicket.fue_verificado} onChange={e => setNuevoTicket({...nuevoTicket, fue_verificado: e.target.value})} className="border rounded p-2 text-sm">
+                        <option value="No">¿Fue Verificado? No</option>
+                        <option value="Sí">¿Fue Verificado? Sí</option>
+                      </select>
+                    </div>
+
+                    <textarea required placeholder="Detalle completo de la solicitud..." value={nuevoTicket.descripcion} onChange={e => setNuevoTicket({...nuevoTicket, descripcion: e.target.value})} className="w-full border rounded p-2 text-sm" rows="3"></textarea>
+
+                    {/* Persona de Contacto */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <input type="text" placeholder="Persona de contacto en la zona" value={nuevoTicket.persona_contacto} onChange={e => setNuevoTicket({...nuevoTicket, persona_contacto: e.target.value})} className="border rounded p-2 text-sm" />
+                      <input type="text" placeholder="Móvil del contacto" value={nuevoTicket.telefono_contacto} onChange={e => setNuevoTicket({...nuevoTicket, telefono_contacto: e.target.value})} className="border rounded p-2 text-sm" />
+                    </div>
+
+                    {/* Responsable del Seguimiento */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <input type="text" placeholder="Responsable del seguimiento" value={nuevoTicket.responsable_seguimiento} onChange={e => setNuevoTicket({...nuevoTicket, responsable_seguimiento: e.target.value})} className="border rounded p-2 text-sm" />
+                      <input type="text" placeholder="Móvil del responsable" value={nuevoTicket.telefono_responsable} onChange={e => setNuevoTicket({...nuevoTicket, telefono_responsable: e.target.value})} className="border rounded p-2 text-sm" />
+                    </div>
+
+                    <div className="flex justify-end gap-2 pt-2 border-t">
                       <button type="button" onClick={() => setMostrarModal(false)} className="px-4 py-2 text-xs text-gray-500">Cancelar</button>
-                      <button type="submit" className="px-4 py-2 text-xs bg-blue-600 text-white rounded font-medium">Guardar Ticket</button>
+                      <button type="submit" disabled={cargando} className="px-4 py-2 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded font-medium disabled:bg-gray-400">
+                        {cargando ? 'Verificando...' : 'Guardar Ticket'}
+                      </button>
                     </div>
                   </form>
                 </div>
