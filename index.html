@@ -25,9 +25,9 @@
     const { useState, useEffect } = React;
 
     // === TUS CLAVES DE SUPABASE ===
-    const SUPABASE_URL = 'https://wwtsegyxdodfhqzpgajn.supabase.co';
-    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3dHNlZ3l4ZG9kZmhxenBnYWpuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU1MTY3NzgsImV4cCI6MjEwMTA5Mjc3OH0.MDb_sVu5vKsdXjL7jm22hO1uXksCZWlYEstBIKO98Cs';
-    
+    const SUPABASE_URL = "https://wwtsegyxdodfhqzpgajn.supabase.co";
+    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3dHNlZ3l4ZG9kZmhxenBnYWpuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU1MTY3NzgsImV4cCI6MjEwMTA5Mjc3OH0.MDb_sVu5vKsdXjL7jm22hO1uXksCZWlYEstBIKO98Cs";
+
     // === ENLACES CSV DE LOS GOOGLE SHEETS POR DEPARTAMENTO ===
     const URLS_VOLUNTARIOS = [
       'https://docs.google.com/spreadsheets/d/e/2PACX-1vSC1qCHZrURes_1bVKlr6nnrMNLXqkj50J6hjH9TvpVsySpnNq5REvgcbUQfXZqFob_jQ8uT_A2Y2qt/pub?output=csv', // Administrativo y Comunicaciones
@@ -41,6 +41,22 @@
 
     const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+    // Función auxiliar para calcular tiempo transcurrido desde la creación del ticket
+    const calcularTiempoTranscurrido = (fechaCreacion) => {
+      if (!fechaCreacion) return 'Reciente';
+      const inicio = new Date(fechaCreacion);
+      const ahora = new Date();
+      const difMs = ahora - inicio;
+      
+      const minutos = Math.floor(difMs / (1000 * 60));
+      const horas = Math.floor(difMs / (1000 * 60 * 60));
+      const dias = Math.floor(horas / 24);
+
+      if (dias > 0) return `${dias} d y ${horas % 24} h`;
+      if (horas > 0) return `${horas} h y ${minutos % 60} m`;
+      return `${Math.max(1, minutos)} min`;
+    };
+
     function App() {
       const [seccion, setSeccion] = useState('home');
       const [tickets, setTickets] = useState([]);
@@ -48,6 +64,9 @@
       const [cargando, setCargando] = useState(false);
       const [mostrarModal, setMostrarModal] = useState(false);
       
+      // Estado de Fecha para Filtro de Tickets
+      const [fechaFiltro, setFechaFiltro] = useState(() => new Date().toISOString().split('T')[0]);
+
       // Estado de Administrador
       const [esAdmin, setEsAdmin] = useState(false);
       const [mostrarLoginAdmin, setMostrarLoginAdmin] = useState(false);
@@ -195,14 +214,27 @@
         }
       };
 
+      // Filtrado de tickets: Muestra tickets del día seleccionado O tickets pendientes que no se han entregado (cola)
+      const ticketsFiltrados = tickets.filter(t => {
+        const fechaTicket = t.created_at ? t.created_at.split('T')[0] : '';
+        const esDelDia = fechaTicket === fechaFiltro;
+        const estaPendiente = t.estado !== 'Entregado';
+        return esDelDia || estaPendiente;
+      });
+
       return (
         <div className="flex flex-col md:flex-row min-h-screen">
           
           {/* Menú Lateral */}
           <aside className="w-full md:w-64 bg-slate-900 text-white p-6 flex-shrink-0 flex flex-col justify-between">
             <div>
-              <h1 className="text-2xl font-bold tracking-wider mb-1 text-blue-400">Proyecto Ruah</h1>
-              <p className="text-xs text-slate-400 mb-8">Gestión de Voluntariado</p>
+              <div className="flex items-center gap-3 mb-8">
+                <img src="https://wwtsegyxdodfhqzpgajn.supabase.co/storage/v1/object/public/proyecto-ruah/Ruah%20logo.png" alt="Logo Ruah" className="w-10 h-10 rounded-full object-cover border border-slate-700 flex-shrink-0" />
+                <div>
+                  <h1 className="text-xl font-bold tracking-wider text-blue-400 leading-none">Proyecto Ruah</h1>
+                  <p className="text-[11px] text-slate-400 mt-1">Gestión de Voluntariado</p>
+                </div>
+              </div>
               
               <nav className="space-y-2">
                 <button onClick={() => setSeccion('home')} className={`w-full text-left px-4 py-3 rounded-lg transition ${seccion === 'home' ? 'bg-blue-600 font-semibold' : 'hover:bg-slate-800'}`}>
@@ -254,14 +286,28 @@
             {/* TICKETS */}
             {seccion === 'tickets' && (
               <div className="space-y-6">
-                <div className="flex justify-between items-center">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                   <div>
                     <h2 className="text-2xl font-bold text-slate-800">Solicitudes y Casos</h2>
-                    <p className="text-xs text-gray-500">Tickets de atención comunitaria</p>
+                    <p className="text-xs text-gray-500">Tickets de atención comunitaria y cola organizada</p>
                   </div>
-                  <button onClick={() => setMostrarModal(true)} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm">
-                    + Registrar Caso / Ticket
-                  </button>
+                  
+                  {/* Calendario / Selector de fecha y Botón */}
+                  <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+                    <div className="flex items-center gap-2 bg-white border border-gray-300 px-3 py-1.5 rounded-lg shadow-sm">
+                      <span className="text-xs font-medium text-gray-600">📅 Fecha:</span>
+                      <input 
+                        type="date" 
+                        value={fechaFiltro} 
+                        onChange={(e) => setFechaFiltro(e.target.value)} 
+                        className="text-xs border-0 outline-none text-slate-800 bg-transparent cursor-pointer"
+                      />
+                    </div>
+
+                    <button onClick={() => setMostrarModal(true)} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm">
+                      + Registrar Caso / Ticket
+                    </button>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -271,41 +317,51 @@
                         {estadoCol}
                       </h3>
                       <div className="space-y-3">
-                        {tickets.filter(t => t.estado === estadoCol).map(t => (
-                          <div key={t.id} className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 space-y-2">
-                            <div className="flex justify-between items-start">
-                              <span className="text-[10px] font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">{t.departamento}</span>
-                              <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${t.fue_verificado === 'Sí' ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-600'}`}>
-                                {t.fue_verificado === 'Sí' ? '✓ Verificado' : 'Sin verificar'}
-                              </span>
-                            </div>
+                        {ticketsFiltrados.filter(t => t.estado === estadoCol).map(t => {
+                          const tiempoTranscurrido = calcularTiempoTranscurrido(t.created_at);
 
-                            <h4 className="font-bold text-sm text-gray-800">{t.situacion_caso || t.comunidad}</h4>
-                            <p className="text-xs text-gray-500 font-medium">📍 {t.ciudad ? `${t.ciudad} - ` : ''}{t.comunidad}</p>
-                            <p className="text-xs text-gray-600 leading-relaxed bg-gray-50 p-2 rounded">{t.descripcion}</p>
-
-                            <div className="text-[11px] text-gray-500 pt-2 border-t space-y-1">
-                              {t.persona_contacto && <p>👤 <strong>Contacto:</strong> {t.persona_contacto} {t.telefono_contacto ? `(${t.telefono_contacto})` : ''}</p>}
-                              {t.responsable_seguimiento && <p>📋 <strong>Responsable:</strong> {t.responsable_seguimiento} {t.telefono_responsable ? `(${t.telefono_responsable})` : ''}</p>}
-                              <p className="text-[10px] text-gray-400">Registrado por: {t.nombre_voluntario} {t.apellido_voluntario}</p>
-                            </div>
-
-                            {/* BOTONES EXCLUSIVOS DE ADMIN */}
-                            {esAdmin && (
-                              <div className="pt-2 flex flex-wrap gap-1 border-t border-gray-100">
-                                {estadoCol !== 'Por revisión' && (
-                                  <button onClick={() => cambiarEstadoTicket(t.id, 'Por revisión')} className="text-[10px] bg-amber-100 text-amber-800 px-2 py-1 rounded">Revisión</button>
-                                )}
-                                {estadoCol !== 'Atendiendo' && (
-                                  <button onClick={() => cambiarEstadoTicket(t.id, 'Atendiendo')} className="text-[10px] bg-blue-100 text-blue-800 px-2 py-1 rounded">Atender</button>
-                                )}
-                                {estadoCol !== 'Entregado' && (
-                                  <button onClick={() => cambiarEstadoTicket(t.id, 'Entregado')} className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-1 rounded">Entregado</button>
-                                )}
+                          return (
+                            <div key={t.id} className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 space-y-2">
+                              <div className="flex justify-between items-start">
+                                <span className="text-[10px] font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">{t.departamento}</span>
+                                <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${t.fue_verificado === 'Sí' ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-600'}`}>
+                                  {t.fue_verificado === 'Sí' ? '✓ Verificado' : 'Sin verificar'}
+                                </span>
                               </div>
-                            )}
-                          </div>
-                        ))}
+
+                              <h4 className="font-bold text-sm text-gray-800">{t.situacion_caso || t.comunidad}</h4>
+                              <p className="text-xs text-gray-500 font-medium">📍 {t.ciudad ? `${t.ciudad} - ` : ''}{t.comunidad}</p>
+                              <p className="text-xs text-gray-600 leading-relaxed bg-gray-50 p-2 rounded">{t.descripcion}</p>
+
+                              {/* Relojito indicador de tiempo */}
+                              <div className="flex items-center gap-1.5 text-[11px] font-medium text-amber-800 bg-amber-50 px-2 sm:px-2.5 py-1 rounded border border-amber-200/60 w-fit">
+                                <span>⏱️</span>
+                                <span>Tiempo en <strong>{estadoCol}</strong>: {tiempoTranscurrido}</span>
+                              </div>
+
+                              <div className="text-[11px] text-gray-500 pt-2 border-t space-y-1">
+                                {t.persona_contacto && <p>👤 <strong>Contacto:</strong> {t.persona_contacto} {t.telefono_contacto ? `(${t.telefono_contacto})` : ''}</p>}
+                                {t.responsable_seguimiento && <p>📋 <strong>Responsable:</strong> {t.responsable_seguimiento} {t.telefono_responsable ? `(${t.telefono_responsable})` : ''}</p>}
+                                <p className="text-[10px] text-gray-400">Registrado por: {t.nombre_voluntario} {t.apellido_voluntario}</p>
+                              </div>
+
+                              {/* BOTONES EXCLUSIVOS DE ADMIN */}
+                              {esAdmin && (
+                                <div className="pt-2 flex flex-wrap gap-1 border-t border-gray-100">
+                                  {estadoCol !== 'Por revisión' && (
+                                    <button onClick={() => cambiarEstadoTicket(t.id, 'Por revisión')} className="text-[10px] bg-amber-100 text-amber-800 px-2 py-1 rounded">Revisión</button>
+                                  )}
+                                  {estadoCol !== 'Atendiendo' && (
+                                    <button onClick={() => cambiarEstadoTicket(t.id, 'Atendiendo')} className="text-[10px] bg-blue-100 text-blue-800 px-2 py-1 rounded">Atender</button>
+                                  )}
+                                  {estadoCol !== 'Entregado' && (
+                                    <button onClick={() => cambiarEstadoTicket(t.id, 'Entregado')} className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-1 rounded">Entregado</button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   ))}
@@ -339,22 +395,48 @@
                     <thead className="bg-gray-50 border-b text-gray-600">
                       <tr>
                         <th className="p-4">Recurso / Insumo</th>
-                        <th className="p-4">Cantidad Disponible</th>
+                        <th className="p-4">Estado de Disponibilidad</th>
                         {esAdmin && <th className="p-4 text-right">Acciones</th>}
                       </tr>
                     </thead>
                     <tbody className="divide-y">
-                      {inventario.map(item => (
-                        <tr key={item.id}>
-                          <td className="p-4 font-medium text-gray-800">{item.item}</td>
-                          <td className="p-4"><span className="bg-slate-100 text-slate-800 font-bold px-2 py-1 rounded text-xs">{item.cantidad} unidades</span></td>
-                          {esAdmin && (
-                            <td className="p-4 text-right">
-                              <button onClick={() => eliminarItemInventario(item.id)} className="text-red-500 hover:text-red-700 text-xs font-medium">Eliminar</button>
+                      {inventario.map(item => {
+                        const estaDisponible = item.cantidad > 2;
+
+                        return (
+                          <tr key={item.id}>
+                            <td className="p-4 font-medium text-gray-800">{item.item}</td>
+                            <td className="p-4">
+                              <div className="flex items-center gap-2">
+                                {/* Botón de Estado para Usuarios */}
+                                {estaDisponible ? (
+                                  <span className="bg-emerald-100 text-emerald-800 font-semibold px-3 py-1 rounded-full text-xs inline-flex items-center gap-1">
+                                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                                    Disponible
+                                  </span>
+                                ) : (
+                                  <span className="bg-red-100 text-red-800 font-semibold px-3 py-1 rounded-full text-xs inline-flex items-center gap-1">
+                                    <span className="w-2 h-2 rounded-full bg-red-500"></span>
+                                    No disponible
+                                  </span>
+                                )}
+
+                                {/* Cantidades visibles ÚNICAMENTE para Administrador */}
+                                {esAdmin && (
+                                  <span className="text-xs text-gray-500 font-mono bg-gray-100 px-2 py-0.5 rounded border border-gray-200 ml-2">
+                                    ({item.cantidad} unidades)
+                                  </span>
+                                )}
+                              </div>
                             </td>
-                          )}
-                        </tr>
-                      ))}
+                            {esAdmin && (
+                              <td className="p-4 text-right">
+                                <button onClick={() => eliminarItemInventario(item.id)} className="text-red-500 hover:text-red-700 text-xs font-medium">Eliminar</button>
+                              </td>
+                            )}
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
