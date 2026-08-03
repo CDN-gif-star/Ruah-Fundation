@@ -22,7 +22,7 @@
   <div id="root"></div>
 
   <script type="text/babel">
-    const { useState, useEffect } = React;
+    const { useState, useEffect, useMemo } = React;
 
     // === TUS CLAVES DE SUPABASE ===
     const SUPABASE_URL = "https://wwtsegyxdodfhqzpgajn.supabase.co";
@@ -67,6 +67,11 @@
       // Estado de Fecha para Filtro de Tickets
       const [fechaFiltro, setFechaFiltro] = useState(() => new Date().toISOString().split('T')[0]);
 
+      // Estados de Inventario (Buscador y Paginación)
+      const [busquedaInventario, setBusquedaInventario] = useState('');
+      const [paginaInventario, setPaginaInventario] = useState(1);
+      const ITEMS_POR_PAGINA = 8;
+
       // Estado de Administrador
       const [esAdmin, setEsAdmin] = useState(false);
       const [mostrarLoginAdmin, setMostrarLoginAdmin] = useState(false);
@@ -106,7 +111,7 @@
 
       const obtenerInventario = async () => {
         setCargando(true);
-        const { data } = await db.from('inventario').select('*').order('created_at', { ascending: false });
+        const { data } = await db.from('inventario').select('*');
         setInventario(data || []);
         setCargando(false);
       };
@@ -221,6 +226,20 @@
         const estaPendiente = t.estado !== 'Entregado';
         return esDelDia || estaPendiente;
       });
+
+      // LÓGICA DE INVENTARIO: Orden Alfabetico, Filtro de Búsqueda y Paginación
+      const inventarioProcesado = useMemo(() => {
+        return [...inventario]
+          .filter(item => item.item.toLowerCase().includes(busquedaInventario.toLowerCase()))
+          .sort((a, b) => a.item.localeCompare(b.item, 'es', { sensitivity: 'base' }));
+      }, [inventario, busquedaInventario]);
+
+      const totalPaginasInventario = Math.ceil(inventarioProcesado.length / ITEMS_POR_PAGINA) || 1;
+      
+      const inventarioPaginado = useMemo(() => {
+        const inicio = (paginaInventario - 1) * ITEMS_POR_PAGINA;
+        return inventarioProcesado.slice(inicio, inicio + ITEMS_POR_PAGINA);
+      }, [inventarioProcesado, paginaInventario]);
 
       return (
         <div className="flex flex-col md:flex-row min-h-screen">
@@ -372,7 +391,26 @@
             {/* INVENTARIO */}
             {seccion === 'inventario' && (
               <div className="space-y-6">
-                <h2 className="text-2xl font-bold text-slate-800">Inventario General</h2>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <h2 className="text-2xl font-bold text-slate-800">Inventario General</h2>
+                    <p className="text-xs text-gray-500">Recursos ordenados alfabéticamente</p>
+                  </div>
+
+                  {/* Buscador de Insumos */}
+                  <div className="relative w-full sm:w-72">
+                    <input
+                      type="text"
+                      placeholder="🔍 Buscar recurso o insumo..."
+                      value={busquedaInventario}
+                      onChange={(e) => {
+                        setBusquedaInventario(e.target.value);
+                        setPaginaInventario(1); // Reiniciar a pag 1 al buscar
+                      }}
+                      className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm"
+                    />
+                  </div>
+                </div>
 
                 {/* Formulario Agregar Ítem (Solo Admin) */}
                 {esAdmin && (
@@ -400,45 +438,88 @@
                       </tr>
                     </thead>
                     <tbody className="divide-y">
-                      {inventario.map(item => {
-                        const estaDisponible = item.cantidad > 2;
+                      {inventarioPaginado.length > 0 ? (
+                        inventarioPaginado.map(item => {
+                          const estaDisponible = item.cantidad > 2;
 
-                        return (
-                          <tr key={item.id}>
-                            <td className="p-4 font-medium text-gray-800">{item.item}</td>
-                            <td className="p-4">
-                              <div className="flex items-center gap-2">
-                                {/* Botón de Estado para Usuarios */}
-                                {estaDisponible ? (
-                                  <span className="bg-emerald-100 text-emerald-800 font-semibold px-3 py-1 rounded-full text-xs inline-flex items-center gap-1">
-                                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                                    Disponible
-                                  </span>
-                                ) : (
-                                  <span className="bg-red-100 text-red-800 font-semibold px-3 py-1 rounded-full text-xs inline-flex items-center gap-1">
-                                    <span className="w-2 h-2 rounded-full bg-red-500"></span>
-                                    No disponible
-                                  </span>
-                                )}
+                          return (
+                            <tr key={item.id} className="hover:bg-gray-50/50 transition">
+                              <td className="p-4 font-medium text-gray-800">{item.item}</td>
+                              <td className="p-4">
+                                <div className="flex items-center gap-2">
+                                  {/* Botón de Estado para Usuarios */}
+                                  {estaDisponible ? (
+                                    <span className="bg-emerald-100 text-emerald-800 font-semibold px-3 py-1 rounded-full text-xs inline-flex items-center gap-1">
+                                      <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                                      Disponible
+                                    </span>
+                                  ) : (
+                                    <span className="bg-red-100 text-red-800 font-semibold px-3 py-1 rounded-full text-xs inline-flex items-center gap-1">
+                                      <span className="w-2 h-2 rounded-full bg-red-500"></span>
+                                      No disponible
+                                    </span>
+                                  )}
 
-                                {/* Cantidades visibles ÚNICAMENTE para Administrador */}
-                                {esAdmin && (
-                                  <span className="text-xs text-gray-500 font-mono bg-gray-100 px-2 py-0.5 rounded border border-gray-200 ml-2">
-                                    ({item.cantidad} unidades)
-                                  </span>
-                                )}
-                              </div>
-                            </td>
-                            {esAdmin && (
-                              <td className="p-4 text-right">
-                                <button onClick={() => eliminarItemInventario(item.id)} className="text-red-500 hover:text-red-700 text-xs font-medium">Eliminar</button>
+                                  {/* Cantidades visibles ÚNICAMENTE para Administrador */}
+                                  {esAdmin && (
+                                    <span className="text-xs text-gray-500 font-mono bg-gray-100 px-2 py-0.5 rounded border border-gray-200 ml-2">
+                                      ({item.cantidad} unidades)
+                                    </span>
+                                  )}
+                                </div>
                               </td>
-                            )}
-                          </tr>
-                        );
-                      })}
+                              {esAdmin && (
+                                <td className="p-4 text-right">
+                                  <button onClick={() => eliminarItemInventario(item.id)} className="text-red-500 hover:text-red-700 text-xs font-medium">Eliminar</button>
+                                </td>
+                              )}
+                            </tr>
+                          );
+                        })
+                      ) : (
+                        <tr>
+                          <td colSpan={esAdmin ? 3 : 2} className="p-8 text-center text-gray-500 text-xs">
+                            No se encontraron recursos que coincidan con la búsqueda.
+                          </td>
+                        </tr>
+                      )}
                     </tbody>
                   </table>
+
+                  {/* PAGINACIÓN */}
+                  {totalPaginasInventario > 1 && (
+                    <div className="bg-gray-50 px-4 py-3 border-t flex items-center justify-between text-xs text-gray-600">
+                      <span>Página {paginaInventario} de {totalPaginasInventario}</span>
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => setPaginaInventario(prev => Math.max(prev - 1, 1))}
+                          disabled={paginaInventario === 1}
+                          className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed font-medium"
+                        >
+                          ◀ Anterior
+                        </button>
+                        
+                        {/* Botones numéricos de páginas */}
+                        {Array.from({ length: totalPaginasInventario }, (_, i) => i + 1).map(num => (
+                          <button
+                            key={num}
+                            onClick={() => setPaginaInventario(num)}
+                            className={`px-3 py-1 border rounded font-semibold ${paginaInventario === num ? 'bg-blue-600 text-white border-blue-600' : 'bg-white border-gray-300 hover:bg-gray-100'}`}
+                          >
+                            {num}
+                          </button>
+                        ))}
+
+                        <button
+                          onClick={() => setPaginaInventario(prev => Math.min(prev + 1, totalPaginasInventario))}
+                          disabled={paginaInventario === totalPaginasInventario}
+                          className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed font-medium"
+                        >
+                          Siguiente ▶
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
