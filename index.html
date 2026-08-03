@@ -3,9 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <!-- DESACTIVAR CACHÉ DEL NAVEGADOR -->
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
+
   <title>Proyecto Ruah</title>
   <link rel="icon" type="image/png" href="https://wwtsegyxdodfhqzpgajn.supabase.co/storage/v1/object/public/proyecto-ruah/Ruah%20logo.png"> 
   
@@ -99,6 +102,42 @@
 
       // Formulario Inventario
       const [nuevoItem, setNuevoItem] = useState({ item: '', cantidad: 1, categoria: 'Comida' });
+
+      // === SISTEMA REALTIME Y AUTO-ACTUALIZACIÓN ===
+      useEffect(() => {
+        // 1. Escuchar la orden remota de recarga emitida desde el panel del Administrador
+        const canalRealtime = db.channel('canal-ruah-sistema')
+          .on('broadcast', { event: 'forzar_recarga' }, () => {
+            console.log('Señal de recarga recibida. Actualizando página...');
+            window.location.reload();
+          })
+          .subscribe();
+
+        // 2. Recargar si el usuario vuelve a enfocar la pestaña
+        const alCambiarVisibilidad = () => {
+          if (document.visibilityState === 'visible') {
+            window.location.reload();
+          }
+        };
+
+        document.addEventListener('visibilitychange', alCambiarVisibilidad);
+
+        return () => {
+          db.removeChannel(canalRealtime);
+          document.removeEventListener('visibilitychange', alCambiarVisibilidad);
+        };
+      }, []);
+
+      // Función para enviar señal de recarga remota a TODOS los usuarios conectados
+      const forzarRecargaGlobal = async () => {
+        if (confirm("¿Deseas forzar la recarga inmediata de la página en TODOS los dispositivos abiertos?")) {
+          await db.channel('canal-ruah-sistema').send({
+            type: 'broadcast',
+            event: 'forzar_recarga',
+          });
+          alert("Se ha enviado la señal de recarga global.");
+        }
+      };
 
       useEffect(() => {
         if (seccion === 'tickets') obtenerTickets();
@@ -271,12 +310,21 @@
               </nav>
             </div>
 
-            {/* Botón Administrador */}
-            <div className="pt-6 border-t border-slate-800 mt-6">
+            {/* Panel de Administrador */}
+            <div className="pt-6 border-t border-slate-800 mt-6 space-y-2">
               {esAdmin ? (
-                <div className="bg-emerald-900/50 p-3 rounded text-center border border-emerald-500/30">
+                <div className="bg-emerald-900/50 p-3 rounded text-center border border-emerald-500/30 space-y-2">
                   <span className="text-xs text-emerald-400 font-medium block">Modo Admin Activo</span>
-                  <button onClick={() => setEsAdmin(false)} className="text-[10px] text-gray-400 underline mt-1">Cerrar Sesión</button>
+                  
+                  {/* Botón para forzar actualización remota en todas las pantallas */}
+                  <button 
+                    onClick={forzarRecargaGlobal}
+                    className="w-full bg-amber-600 hover:bg-amber-700 text-white text-[11px] py-1.5 rounded font-semibold transition flex items-center justify-center gap-1 shadow"
+                  >
+                    ⚡ Forzar Recarga General
+                  </button>
+
+                  <button onClick={() => setEsAdmin(false)} className="text-[10px] text-gray-400 underline block mx-auto">Cerrar Sesión</button>
                 </div>
               ) : (
                 <button onClick={() => setMostrarLoginAdmin(true)} className="w-full text-xs text-slate-400 hover:text-white py-2 text-center transition">
