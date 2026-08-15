@@ -58,6 +58,12 @@
       const horas = Math.floor(difMs / (1000 * 60 * 60));
       const dias = Math.floor(horas / 24);
 
+      // Estados para la edición del censo
+      const [mostrarModalEditarCenso, setMostrarModalEditarCenso] = useState(false);
+      const [censoEdit, setCensoEdit] = useState({
+        adultos: 0, adultos_mayores: 0, ninos: 0, adolescentes: 0, embarazadas: 0, bebes: 0, casos_especificos: ''
+      });
+
       if (dias > 0) return `${dias} d y ${horas % 24} h`;
       if (horas > 0) return `${horas} h y ${minutos % 60} m`;
       return `${Math.max(1, minutos)} min`;
@@ -284,6 +290,29 @@
           });
         }
       };
+      const abrirEditorCenso = (c) => {
+        setComunidadSeleccionada(c);
+        setCensoEdit({
+          adultos: c.adultos, adultos_mayores: c.adultos_mayores, ninos: c.ninos,
+          adolescentes: c.adolescentes, embarazadas: c.embarazadas, bebes: c.bebes,
+          casos_especificos: c.casos_especificos || ''
+        });
+        setMostrarModalEditarCenso(true);
+      };
+
+      const actualizarCenso = async (e) => {
+        e.preventDefault();
+        setCargando(true);
+        const { error } = await db.from('comunidades').update(censoEdit).eq('id', comunidadSeleccionada.id);
+        if (error) {
+          alert("Error al actualizar: " + error.message);
+        } else {
+          alert("Censo actualizado con éxito");
+          setMostrarModalEditarCenso(false);
+          obtenerComunidades();
+        }
+        setCargando(false);
+      };
 
       const guardarNecesidad = async (e) => {
         e.preventDefault();
@@ -445,7 +474,13 @@
                     <div key={c.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                       <div className="p-5 border-b bg-slate-50 flex justify-between items-center">
                         <h3 className="font-bold text-lg text-slate-800">{c.nombre_comunidad}</h3>
-                        <span className="text-[10px] bg-blue-100 text-blue-800 px-2 py-1 rounded font-bold uppercase tracking-wider">Censo Activo</span>
+                        {/* Quitamos el span de "Censo Activo" y ponemos el botón funcional */}
+                        <button 
+                          onClick={() => abrirEditorCenso(c)}
+                          className="text-[10px] bg-white border border-blue-200 text-blue-600 px-2 py-1.5 rounded font-bold hover:bg-blue-600 hover:text-white transition-all shadow-sm"
+                        >
+                          ✏️ Editar Censo
+                        </button>
                       </div>
                       <div className="p-5 space-y-4">
                         <div className="grid grid-cols-2 gap-4 text-xs text-gray-600">
@@ -796,6 +831,57 @@
                     <div className="flex justify-center gap-2">
                       <button type="button" onClick={() => setMostrarLoginAdmin(false)} className="px-3 py-1.5 text-xs text-gray-500">Cancelar</button>
                       <button type="submit" className="px-3 py-1.5 text-xs bg-slate-900 text-white rounded font-medium">Entrar</button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
+
+            {/* MODAL EDITAR CENSO (Disponible para todos los usuarios) */}
+            {mostrarModalEditarCenso && (
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[60] overflow-y-auto">
+                <div className="bg-white rounded-xl p-6 w-full max-w-md my-8 shadow-2xl">
+                  <h3 className="text-xl font-bold mb-4 text-slate-800 border-b pb-2">Actualizar Datos del Censo</h3>
+                  <p className="text-xs text-gray-500 mb-4">Comunidad: <span className="font-bold">{comunidadSeleccionada?.nombre_comunidad}</span></p>
+                  
+                  <form onSubmit={actualizarCenso} className="space-y-4">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-[10px] uppercase font-bold text-gray-500">Adultos</label>
+                        <input type="number" className="w-full border rounded p-2 text-sm" value={censoEdit.adultos} onChange={e => setCensoEdit({...censoEdit, adultos: e.target.value})} />
+                      </div>
+                      <div>
+                        <label className="text-[10px] uppercase font-bold text-gray-500">Mayores</label>
+                        <input type="number" className="w-full border rounded p-2 text-sm" value={censoEdit.adultos_mayores} onChange={e => setCensoEdit({...censoEdit, adultos_mayores: e.target.value})} />
+                      </div>
+                      <div>
+                        <label className="text-[10px] uppercase font-bold text-gray-500">Niños</label>
+                        <input type="number" className="w-full border rounded p-2 text-sm" value={censoEdit.ninos} onChange={e => setCensoEdit({...censoEdit, ninos: e.target.value})} />
+                      </div>
+                      <div>
+                        <label className="text-[10px] uppercase font-bold text-gray-500">Adolescentes</label>
+                        <input type="number" className="w-full border rounded p-2 text-sm" value={censoEdit.adolescentes} onChange={e => setCensoEdit({...censoEdit, adolescentes: e.target.value})} />
+                      </div>
+                      <div>
+                        <label className="text-[10px] uppercase font-bold text-gray-500">Embarazadas</label>
+                        <input type="number" className="w-full border rounded p-2 text-sm" value={censoEdit.embarazadas} onChange={e => setCensoEdit({...censoEdit, embarazadas: e.target.value})} />
+                      </div>
+                      <div>
+                        <label className="text-[10px] uppercase font-bold text-gray-500">Bebés</label>
+                        <input type="number" className="w-full border rounded p-2 text-sm" value={censoEdit.bebes} onChange={e => setCensoEdit({...censoEdit, bebes: e.target.value})} />
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <label className="text-[10px] uppercase font-bold text-gray-500">Casos Específicos / Obs.</label>
+                      <textarea className="w-full border rounded p-2 text-sm" rows="3" value={censoEdit.casos_especificos} onChange={e => setCensoEdit({...censoEdit, casos_especificos: e.target.value})}></textarea>
+                    </div>
+
+                    <div className="flex justify-end gap-2 border-t pt-4">
+                      <button type="button" onClick={() => setMostrarModalEditarCenso(false)} className="px-4 py-2 text-sm text-gray-500">Cancelar</button>
+                      <button type="submit" disabled={cargando} className="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold shadow hover:bg-blue-700 disabled:bg-blue-300">
+                        {cargando ? 'Guardando...' : 'Actualizar Censo'}
+                      </button>
                     </div>
                   </form>
                 </div>
