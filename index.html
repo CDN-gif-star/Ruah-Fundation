@@ -3,24 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  
-  <!-- DESACTIVAR CACHÉ DEL NAVEGADOR -->
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
 
-  <title>Proyecto Ruah</title>
+  <title>Proyecto Ruah - Sistema Modular</title>
   <link rel="icon" type="image/png" href="https://wwtsegyxdodfhqzpgajn.supabase.co/storage/v1/object/public/proyecto-ruah/Ruah%20logo.png"> 
   
-  <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
-  
-  <!-- React y Babel -->
-  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin crossorigin="anonymous"></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  
-  <!-- Supabase JS -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body class="bg-gray-100 text-gray-800 font-sans">
@@ -30,522 +23,247 @@
   <script type="text/babel">
     const { useState, useEffect, useMemo } = React;
 
-    // === TUS CLAVES DE SUPABASE ===
+    // ==========================================
+    // 1. CONFIGURACIÓN Y CONSTANTES
+    // ==========================================
     const SUPABASE_URL = "https://wwtsegyxdodfhqzpgajn.supabase.co";
     const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3dHNlZ3l4ZG9kZmhxenBnYWpuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU1MTY3NzgsImV4cCI6MjEwMTA5Mjc3OH0.MDb_sVu5vKsdXjL7jm22hO1uXksCZWlYEstBIKO98Cs";
-
-    // === ENLACES CSV DE LOS GOOGLE SHEETS POR DEPARTAMENTO ===
-    const URLS_VOLUNTARIOS = [
-      'https://docs.google.com/spreadsheets/d/e/2PACX-1vSC1qCHZrURes_1bVKlr6nnrMNLXqkj50J6hjH9TvpVsySpnNq5REvgcbUQfXZqFob_jQ8uT_A2Y2qt/pub?output=csv', // Administrativo y Comunicaciones
-      'https://docs.google.com/spreadsheets/d/e/2PACX-1vRHqdXWibNn84wo0MOkfBJZpaA9sbXyC_Y_fMsNADcinC1XD6iQL2X38PwBi2Y-kimdmio1p6kDbM0P/pub?output=csv', // Logística y Transporte
-      'https://docs.google.com/spreadsheets/d/e/2PACX-1vRMgDgHLQJ4Vu3LWoKTWUREc6N1C3eAw1yjvFLqIYNGp21waqHJaECritHXj-mi7sVYrBMV7OmIbdUM/pub?output=csv', // Traductores e Intérpretes
-      'https://docs.google.com/spreadsheets/d/e/2PACX-1vR2OU1pvEKVDzEFEe4i58GB2JmxwL3M7q_nZCLKJo1jLM5xKiImVba1YufKLS1QC0M2ARz11FLVdVUT/pub?output=csv'  // Salud
-    ];
-
-    // CONTRASEÑA DE ADMINISTRADOR
     const CLAVE_ADMIN = "ruah2026";
-
     const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    // Función auxiliar para calcular tiempo transcurrido desde la creación del ticket
-    const calcularTiempoTranscurrido = (fechaCreacion) => {
-      if (!fechaCreacion) return 'Reciente';
-      const inicio = new Date(fechaCreacion);
-      const ahora = new Date();
-      const difMs = ahora - inicio;
-      
-      const minutos = Math.floor(difMs / (1000 * 60));
-      const horas = Math.floor(difMs / (1000 * 60 * 60));
-      const dias = Math.floor(horas / 24);
+    const URLS_VOLUNTARIOS = [
+      'https://docs.google.com/spreadsheets/d/e/2PACX-1vSC1qCHZrURes_1bVKlr6nnrMNLXqkj50J6hjH9TvpVsySpnNq5REvgcbUQfXZqFob_jQ8uT_A2Y2qt/pub?output=csv',
+      'https://docs.google.com/spreadsheets/d/e/2PACX-1vRHqdXWibNn84wo0MOkfBJZpaA9sbXyC_Y_fMsNADcinC1XD6iQL2X38PwBi2Y-kimdmio1p6kDbM0P/pub?output=csv',
+      'https://docs.google.com/spreadsheets/d/e/2PACX-1vRMgDgHLQJ4Vu3LWoKTWUREc6N1C3eAw1yjvFLqIYNGp21waqHJaECritHXj-mi7sVYrBMV7OmIbdUM/pub?output=csv',
+      'https://docs.google.com/spreadsheets/d/e/2PACX-1vR2OU1pvEKVDzEFEe4i58GB2JmxwL3M7q_nZCLKJo1jLM5xKiImVba1YufKLS1QC0M2ARz11FLVdVUT/pub?output=csv'
+    ];
 
-      if (dias > 0) return `${dias} d y ${horas % 24} h`;
-      if (horas > 0) return `${horas} h y ${minutos % 60} m`;
-      return `${Math.max(1, minutos)} min`;
-    };
-
-    function App() {
-      const [seccion, setSeccion] = useState('home');
-      const [tickets, setTickets] = useState([]);
-      const [inventario, setInventario] = useState([]);
-      const [comunidades, setComunidades] = useState([]);
-      const [cargando, setCargando] = useState(false);
-      
-      // Modales
-      const [mostrarModal, setMostrarModal] = useState(false);
-      const [mostrarModalComunidad, setMostrarModalComunidad] = useState(false);
-      const [mostrarModalNecesidades, setMostrarModalNecesidades] = useState(false);
-      
-      // Estado de Fecha para Filtro de Tickets
-      const [fechaFiltro, setFechaFiltro] = useState(() => new Date().toISOString().split('T')[0]);
-
-      // Estados de Inventario (Buscador y Paginación)
-      const [busquedaInventario, setBusquedaInventario] = useState('');
-      const [paginaInventario, setPaginaInventario] = useState(1);
-      const ITEMS_POR_PAGINA = 8;
-
-      // Estado de Administrador
-      const [esAdmin, setEsAdmin] = useState(false);
-      const [mostrarLoginAdmin, setMostrarLoginAdmin] = useState(false);
-      const [passInput, setPassInput] = useState('');
-
-      // Estados para Comunidades y Necesidades
-      const [comunidadSeleccionada, setComunidadSeleccionada] = useState(null);
-      const [vistaNecesidades, setVistaNecesidades] = useState('menu'); // menu, ver, agregar, colaborar
-      const [necesidades, setNecesidades] = useState([]);
-      const [necesidadActiva, setNecesidadActiva] = useState(null);
-
-      // Formulario Ticket Completo
-      const [nuevoTicket, setNuevoTicket] = useState({
-        nombre_voluntario: '',
-        apellido_voluntario: '',
-        situacion_caso: '',
-        ciudad: '',
-        comunidad: '',
-        fue_verificado: 'No',
-        descripcion: '',
-        persona_contacto: '',
-        telefono_contacto: '',
-        responsable_seguimiento: '',
-        telefono_responsable: '',
-        departamento: 'Departamento de Logística',
-        estado: 'Por revisión'
-      });
-
-      // Formulario Inventario
-      const [nuevoItem, setNuevoItem] = useState({ item: '', cantidad: 1, categoria: 'Comida' });
-
-      // Formulario Comunidades
-      const [nuevaComunidad, setNuevaComunidad] = useState({
-        nombre_representante: '', cedula: '', telefono_rep: '', nombre_encargado_ruah: '', telefono_encargado: '',
-        nombre_comunidad: '', direccion: '', mapa_url: '',
-        adultos: 0, adultos_mayores: 0, ninos: 0, adolescentes: 0, embarazadas: 0, bebes: 0, casos_especificos: ''
-      });
-
-      // Formulario Necesidad
-      const [nuevaNecesidad, setNuevaNecesidad] = useState({ insumo: '', nombre_persona: '', nota: '' });
-      const [colaborador, setColaborador] = useState({ nombre: '', telefono: '', es_voluntario: 'No' });
-
-      // === SISTEMA REALTIME Y AUTO-ACTUALIZACIÓN ===
-      useEffect(() => {
-        const canalRealtime = db.channel('canal-ruah-sistema')
-          .on('broadcast', { event: 'forzar_recarga' }, () => {
-            console.log('Señal de recarga recibida. Actualizando página...');
-            window.location.reload();
-          })
-          .subscribe();
-
-        const alCambiarVisibilidad = () => {
-          if (document.visibilityState === 'visible') {
-            window.location.reload();
-          }
-        };
-
-        document.addEventListener('visibilitychange', alCambiarVisibilidad);
-
-        return () => {
-          db.removeChannel(canalRealtime);
-          document.removeEventListener('visibilitychange', alCambiarVisibilidad);
-        };
-      }, []);
-
-      const forzarRecargaGlobal = async () => {
-        if (confirm("¿Deseas forzar la recarga inmediata de la página en TODOS los dispositivos abiertos?")) {
-          await db.channel('canal-ruah-sistema').send({
-            type: 'broadcast',
-            event: 'forzar_recarga',
-          });
-          alert("Se ha enviado la señal de recarga global.");
-        }
-      };
-
-      useEffect(() => {
-        if (seccion === 'tickets') obtenerTickets();
-        if (seccion === 'inventario') obtenerInventario();
-        if (seccion === 'comunidades') obtenerComunidades();
-      }, [seccion]);
-
-      // === FUNCIONES TICKETS ===
-      const obtenerTickets = async () => {
-        setCargando(true);
-        const { data } = await db.from('tickets').select('*').order('created_at', { ascending: false });
-        setTickets(data || []);
-        setCargando(false);
-      };
-
-      const obtenerInventario = async () => {
-        setCargando(true);
-        const { data } = await db.from('inventario').select('*');
-        setInventario(data || []);
-        setCargando(false);
-      };
-
-      const cambiarEstadoTicket = async (id, nuevoEstado) => {
-        const { error } = await db.from('tickets').update({ estado: nuevoEstado }).eq('id', id);
-        if (error) alert("Error actualizando ticket: " + error.message);
-        else obtenerTickets();
-      };
-
-      const validarVoluntarioEnSheet = async (nombre, apellido) => {
-        const busquedaNombre = nombre.toLowerCase().trim();
-        const busquedaApellido = apellido ? apellido.toLowerCase().trim() : '';
-
+    const Helpers = {
+      calcularTiempo: (fecha) => {
+        if (!fecha) return 'Reciente';
+        const inicio = new Date(fecha);
+        const ahora = new Date();
+        const difMs = ahora - inicio;
+        const min = Math.floor(difMs / 60000);
+        const hrs = Math.floor(min / 60);
+        const dias = Math.floor(hrs / 24);
+        if (dias > 0) return `${dias} d y ${hrs % 24} h`;
+        if (hrs > 0) return `${hrs} h y ${min % 60} m`;
+        return `${Math.max(1, min)} min`;
+      },
+      validarVoluntario: async (nombre, apellido) => {
+        const nom = nombre.toLowerCase().trim();
+        const ape = apellido ? apellido.toLowerCase().trim() : '';
         for (const url of URLS_VOLUNTARIOS) {
           try {
             const res = await fetch(url);
-            const texto = await res.text();
-            const textoMinuscula = texto.toLowerCase();
-
-            const tieneNombre = textoMinuscula.includes(busquedaNombre);
-            const tieneApellido = busquedaApellido ? textoMinuscula.includes(busquedaApellido) : true;
-
-            if (tieneNombre && tieneApellido) return true;
-          } catch (e) {
-            console.error("Error al consultar lista de voluntarios:", e);
-          }
+            const texto = (await res.text()).toLowerCase();
+            if (texto.includes(nom) && (ape === '' || texto.includes(ape))) return true;
+          } catch (e) { console.error("Error validando:", e); }
         }
         return false;
+      }
+    };
+
+    // ==========================================
+    // 2. CAPA DE DATOS (RuahAPI)
+    // ==========================================
+    const RuahAPI = {
+      tickets: {
+        fetch: async () => {
+          const { data } = await db.from('tickets').select('*').order('created_at', { ascending: false });
+          return data || [];
+        },
+        updateEstado: async (id, estado) => await db.from('tickets').update({ estado }).eq('id', id),
+        save: async (ticket) => await db.from('tickets').insert([ticket])
+      },
+      inventario: {
+        fetch: async () => {
+          const { data } = await db.from('inventario').select('*');
+          return data || [];
+        },
+        save: async (item) => await db.from('inventario').insert([item]),
+        delete: async (id) => await db.from('inventario').delete().eq('id', id)
+      },
+      comunidades: {
+        fetch: async () => {
+          const { data } = await db.from('comunidades').select('*').order('nombre_comunidad', { ascending: true });
+          return data || [];
+        },
+        save: async (comu) => await db.from('comunidades').insert([comu]),
+        updateCenso: async (id, censo) => await db.from('comunidades').update(censo).eq('id', id)
+      },
+      necesidades: {
+        fetch: async (comuId) => {
+          const { data } = await db.from('necesidades').select('*').eq('comunidad_id', comuId).order('created_at', { ascending: false });
+          return data || [];
+        },
+        save: async (nece) => await db.from('necesidades').insert([nece]),
+        colaborar: async (id, colab) => await db.from('necesidades').update({ colaborador: colab }).eq('id', id)
+      }
+    };
+
+    // ==========================================
+    // 3. COMPONENTES DE INTERFAZ (UI)
+    // ==========================================
+    
+    const TicketCard = ({ t, esAdmin, onCambiarEstado }) => (
+      <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 space-y-2">
+        <div className="flex justify-between items-start">
+          <span className="text-[10px] font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">{t.departamento}</span>
+          <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${t.fue_verificado === 'Sí' ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-600'}`}>
+            {t.fue_verificado === 'Sí' ? '✓ Verificado' : 'Sin verificar'}
+          </span>
+        </div>
+        <h4 className="font-bold text-sm text-gray-800">{t.situacion_caso || t.comunidad}</h4>
+        <p className="text-xs text-gray-500 font-medium">📍 {t.comunidad}</p>
+        <p className="text-xs text-gray-600 bg-gray-50 p-2 rounded">{t.descripcion}</p>
+        <div className="text-[11px] font-medium text-amber-800 bg-amber-50 px-2 py-1 rounded border border-amber-200/60 w-fit">
+          ⏱️ {Helpers.calcularTiempo(t.created_at)}
+        </div>
+        {esAdmin && (
+          <div className="pt-2 flex flex-wrap gap-1 border-t">
+            {['Por revisión', 'Atendiendo', 'Entregado'].map(est => (
+              t.estado !== est && <button key={est} onClick={() => onCambiarEstado(t.id, est)} className="text-[10px] bg-gray-100 px-2 py-1 rounded hover:bg-gray-200">{est}</button>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+
+    const ComunidadCard = ({ c, onNecesidades, onEditarCenso }) => (
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="p-5 border-b bg-slate-50 flex justify-between items-center">
+          <h3 className="font-bold text-lg text-slate-800">{c.nombre_comunidad}</h3>
+          <button onClick={() => onEditarCenso(c)} className="text-[10px] bg-white border border-blue-200 text-blue-600 px-2 py-1 rounded font-bold hover:bg-blue-50 transition">✏️ Editar Censo</button>
+        </div>
+        <div className="p-5 space-y-4">
+          <div className="grid grid-cols-2 gap-4 text-xs text-gray-500">
+            <div><p className="font-bold uppercase text-[9px]">Representante</p><p className="text-slate-800">{c.nombre_representante} ({c.telefono_rep})</p></div>
+            <div><p className="font-bold uppercase text-[9px]">Encargado Ruah</p><p className="text-slate-800">{c.nombre_encargado_ruah}</p></div>
+          </div>
+          <div className="bg-gray-50 p-3 rounded-lg border border-gray-100 grid grid-cols-3 gap-2 text-center">
+            <div className="p-1 text-[10px]"><p className="text-gray-400">Niños</p><p className="font-bold">{c.ninos || 0}</p></div>
+            <div className="p-1 text-[10px]"><p className="text-gray-400">Adultos</p><p className="font-bold">{c.adultos || 0}</p></div>
+            <div className="p-1 text-[10px]"><p className="text-gray-400">Embar.</p><p className="font-bold">{c.embarazadas || 0}</p></div>
+          </div>
+          <button onClick={() => onNecesidades(c)} className="w-full py-2 bg-slate-800 text-white rounded-lg text-sm font-semibold hover:bg-slate-900 transition shadow-sm">📋 Lista de Necesidades</button>
+        </div>
+      </div>
+    );
+
+    // ==========================================
+    // 4. APLICACIÓN PRINCIPAL
+    // ==========================================
+    function App() {
+      const [seccion, setSeccion] = useState('home');
+      const [data, setData] = useState({ tickets: [], inventario: [], comunidades: [] });
+      const [cargando, setCargando] = useState(false);
+      const [esAdmin, setEsAdmin] = useState(false);
+      const [modales, setModales] = useState({ login: false, ticket: false, comunidad: false, censo: false, necesidades: false });
+      
+      const [fechaFiltro, setFechaFiltro] = useState(() => new Date().toISOString().split('T')[0]);
+      const [selección, setSelección] = useState({ comu: null, nece: [], acti: null });
+      const [vistaNece, setVistaNece] = useState('ver');
+
+      // Carga de datos
+      const refresh = async () => {
+        setCargando(true);
+        const [t, i, c] = await Promise.all([RuahAPI.tickets.fetch(), RuahAPI.inventario.fetch(), RuahAPI.comunidades.fetch()]);
+        setData({ tickets: t, inventario: i, comunidades: c });
+        setCargando(false);
       };
 
-      const guardarTicket = async (e) => {
-        e.preventDefault();
+      useEffect(() => { refresh(); }, [seccion]);
+
+      // Handlers
+      const handleLogin = (pass) => {
+        if (pass === CLAVE_ADMIN) { setEsAdmin(true); setModales({...modales, login: false}); }
+        else alert("Clave incorrecta");
+      };
+
+      const handleSaveTicket = async (ticket) => {
         setCargando(true);
-
-        const estaRegistrado = await validarVoluntarioEnSheet(
-          nuevoTicket.nombre_voluntario, 
-          nuevoTicket.apellido_voluntario
-        );
-
-        if (!estaRegistrado) {
+        const registrado = await Helpers.validarVoluntario(ticket.nombre_voluntario, ticket.apellido_voluntario);
+        if (!registrado) {
+          alert("No apareces registrado como voluntario.");
           setCargando(false);
-          alert("⚠️ ATENCIÓN: No apareces registrado como voluntario en ningún departamento del proyecto Ruah. Por favor comunícate con un coordinador para inscribirte antes de crear un ticket.");
           return;
         }
-
-        const { error } = await db.from('tickets').insert([nuevoTicket]);
-        setCargando(false);
-
-        if (error) {
-          alert("Error al guardar ticket: " + error.message);
-        } else {
-          alert("¡Ticket registrado con éxito!");
-          setMostrarModal(false);
-          setNuevoTicket({
-            nombre_voluntario: '', apellido_voluntario: '', situacion_caso: '', ciudad: '',
-            comunidad: '', fue_verificado: 'No', descripcion: '', persona_contacto: '',
-            telefono_contacto: '', responsable_seguimiento: '', telefono_responsable: '',
-            departamento: 'Departamento de Logística', estado: 'Por revisión'
-          });
-          obtenerTickets();
-        }
+        await RuahAPI.tickets.save(ticket);
+        setModales({...modales, ticket: false});
+        refresh();
       };
-
-      // === FUNCIONES INVENTARIO ===
-      const agregarInventario = async (e) => {
-        e.preventDefault();
-        const { error } = await db.from('inventario').insert([nuevoItem]);
-        if (error) alert("Error: " + error.message);
-        else {
-          setNuevoItem({ item: '', cantidad: 1, categoria: 'Comida' });
-          obtenerInventario();
-        }
-      };
-
-      const eliminarItemInventario = async (id) => {
-        if (confirm("¿Seguro de eliminar este ítem?")) {
-          await db.from('inventario').delete().eq('id', id);
-          obtenerInventario();
-        }
-      };
-
-      // === FUNCIONES COMUNIDADES Y NECESIDADES ===
-      const obtenerComunidades = async () => {
-        setCargando(true);
-        const { data } = await db.from('comunidades').select('*').order('nombre_comunidad', { ascending: true });
-        setComunidades(data || []);
-        setCargando(false);
-      };
-
-      const obtenerNecesidades = async (id) => {
-        const { data } = await db.from('necesidades').select('*').eq('comunidad_id', id).order('created_at', { ascending: false });
-        setNecesidades(data || []);
-      };
-
-      const guardarComunidad = async (e) => {
-        e.preventDefault();
-        const { error } = await db.from('comunidades').insert([nuevaComunidad]);
-        if (error) alert(error.message);
-        else { 
-          setMostrarModalComunidad(false); 
-          obtenerComunidades();
-          setNuevaComunidad({
-            nombre_representante: '', cedula: '', telefono_rep: '', nombre_encargado_ruah: '', telefono_encargado: '',
-            nombre_comunidad: '', direccion: '', mapa_url: '', adultos: 0, adultos_mayores: 0, ninos: 0,
-            adolescentes: 0, embarazadas: 0, bebes: 0, casos_especificos: ''
-          });
-        }
-      };
-
-      const guardarNecesidad = async (e) => {
-        e.preventDefault();
-        const { error } = await db.from('necesidades').insert([{ ...nuevaNecesidad, comunidad_id: comunidadSeleccionada.id, colaborador: null }]);
-        if (error) alert(error.message);
-        else { 
-          setVistaNecesidades('ver'); 
-          obtenerNecesidades(comunidadSeleccionada.id); 
-          setNuevaNecesidad({ insumo: '', nombre_persona: '', nota: '' });
-        }
-      };
-
-      const registrarColaboracion = async (e) => {
-        e.preventDefault();
-        const { error } = await db.from('necesidades').update({ colaborador: colaborador }).eq('id', necesidadActiva.id);
-        if (error) alert(error.message);
-        else { 
-          setVistaNecesidades('ver'); 
-          obtenerNecesidades(comunidadSeleccionada.id); 
-          setColaborador({ nombre: '', telefono: '', es_voluntario: 'No' });
-        }
-      };
-
-      // === LOGIN ===
-      const loginAdmin = (e) => {
-        e.preventDefault();
-        if (passInput === CLAVE_ADMIN) {
-          setEsAdmin(true);
-          setMostrarLoginAdmin(false);
-          setPassInput('');
-          alert("¡Modo Administrador Activado!");
-        } else {
-          alert("Contraseña incorrecta");
-        }
-      };
-
-      // Filtrado de tickets
-      const ticketsFiltrados = tickets.filter(t => {
-        const fechaTicket = t.created_at ? t.created_at.split('T')[0] : '';
-        const esDelDia = fechaTicket === fechaFiltro;
-        const estaPendiente = t.estado !== 'Entregado';
-        return esDelDia || estaPendiente;
-      });
-
-      // LÓGICA DE INVENTARIO
-      const inventarioProcesado = useMemo(() => {
-        return [...inventario]
-          .filter(item => item.item.toLowerCase().includes(busquedaInventario.toLowerCase()))
-          .sort((a, b) => a.item.localeCompare(b.item, 'es', { sensitivity: 'base' }));
-      }, [inventario, busquedaInventario]);
-
-      const totalPaginasInventario = Math.ceil(inventarioProcesado.length / ITEMS_POR_PAGINA) || 1;
-      const inventarioPaginado = useMemo(() => {
-        const inicio = (paginaInventario - 1) * ITEMS_POR_PAGINA;
-        return inventarioProcesado.slice(inicio, inicio + ITEMS_POR_PAGINA);
-      }, [inventarioProcesado, paginaInventario]);
 
       return (
         <div className="flex flex-col md:flex-row min-h-screen">
           
-          {/* Menú Lateral */}
+          {/* BARRA LATERAL */}
           <aside className="w-full md:w-64 bg-slate-900 text-white p-6 flex-shrink-0 flex flex-col justify-between">
-            <div>
-              <div className="flex items-center gap-3 mb-8">
-                <img src="https://wwtsegyxdodfhqzpgajn.supabase.co/storage/v1/object/public/proyecto-ruah/Ruah%20logo.png" alt="Logo Ruah" className="w-10 h-10 rounded-full object-cover border border-slate-700 flex-shrink-0" />
-                <div>
-                  <h1 className="text-xl font-bold tracking-wider text-blue-400 leading-none">Proyecto Ruah</h1>
-                  <p className="text-[11px] text-slate-400 mt-1">Gestión de Voluntariado</p>
-                </div>
+            <div className="space-y-8">
+              <div className="flex items-center gap-3">
+                <img src="https://wwtsegyxdodfhqzpgajn.supabase.co/storage/v1/object/public/proyecto-ruah/Ruah%20logo.png" className="w-10 h-10 rounded-full" />
+                <h1 className="text-xl font-bold text-blue-400">Proyecto Ruah</h1>
               </div>
-              
               <nav className="space-y-2">
-                <button onClick={() => setSeccion('home')} className={`w-full text-left px-4 py-3 rounded-lg transition ${seccion === 'home' ? 'bg-blue-600 font-semibold' : 'hover:bg-slate-800'}`}>
-                  🏠 Home
-                </button>
-                <button onClick={() => setSeccion('comunidades')} className={`w-full text-left px-4 py-3 rounded-lg transition ${seccion === 'comunidades' ? 'bg-blue-600 font-semibold' : 'hover:bg-slate-800'}`}>
-                  📍 Comunidades
-                </button>
-                <button onClick={() => setSeccion('tickets')} className={`w-full text-left px-4 py-3 rounded-lg transition ${seccion === 'tickets' ? 'bg-blue-600 font-semibold' : 'hover:bg-slate-800'}`}>
-                  🎟️ Tickets
-                </button>
-                <button onClick={() => setSeccion('inventario')} className={`w-full text-left px-4 py-3 rounded-lg transition ${seccion === 'inventario' ? 'bg-blue-600 font-semibold' : 'hover:bg-slate-800'}`}>
-                  📦 Inventario
-                </button>
+                {['home', 'comunidades', 'tickets', 'inventario'].map(s => (
+                  <button key={s} onClick={() => setSeccion(s)} className={`w-full text-left px-4 py-3 rounded-lg capitalize ${seccion === s ? 'bg-blue-600' : 'hover:bg-slate-800'}`}>
+                    {s === 'home' ? '🏠 Home' : s === 'comunidades' ? '📍 Comunidades' : s === 'tickets' ? '🎟️ Tickets' : '📦 Inventario'}
+                  </button>
+                ))}
               </nav>
             </div>
-
-            <div className="pt-6 border-t border-slate-800 mt-6 space-y-2">
-              {esAdmin ? (
-                <div className="bg-emerald-900/50 p-3 rounded text-center border border-emerald-500/30 space-y-2">
-                  <span className="text-xs text-emerald-400 font-medium block">Modo Admin Activo</span>
-                  <button onClick={forzarRecargaGlobal} className="w-full bg-amber-600 hover:bg-amber-700 text-white text-[11px] py-1.5 rounded font-semibold transition flex items-center justify-center gap-1 shadow">
-                    ⚡ Forzar Recarga General
-                  </button>
-                  <button onClick={() => setEsAdmin(false)} className="text-[10px] text-gray-400 underline block mx-auto">Cerrar Sesión</button>
-                </div>
-              ) : (
-                <button onClick={() => setMostrarLoginAdmin(true)} className="w-full text-xs text-slate-400 hover:text-white py-2 text-center transition">
-                  🔒 Acceso Admin
-                </button>
-              )}
+            <div className="pt-6 border-t border-slate-800">
+              {esAdmin ? <div className="text-center text-xs text-emerald-400">Admin Activo</div> : 
+              <button onClick={() => setModales({...modales, login: true})} className="w-full text-xs text-slate-400 py-2">🔒 Acceso Admin</button>}
             </div>
           </aside>
 
-          {/* Contenido Principal */}
+          {/* CONTENIDO */}
           <main className="flex-1 p-6 md:p-10 relative">
+            {cargando && <div className="absolute top-4 right-10 text-xs text-blue-600 font-bold animate-pulse">Cargando...</div>}
             
-            {/* HOME */}
             {seccion === 'home' && (
-              <div className="max-w-4xl space-y-8">
-                <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-200">
-                  <h2 className="text-3xl font-bold text-slate-800 mb-4">¡Bienvenidos a Fundación Ruah!</h2>
-                  <p className="text-gray-600 leading-relaxed mb-6">
-                    Atendiendo las necesidades de nuestras comunidades mediante voluntariado transparente.
-                  </p>
-                  <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r mb-8">
-                    <p className="italic text-blue-900 font-medium">"Y el Rey les dirá: En verdad os digo que en cuanto lo hicisteis a uno de estos mis hermanos más pequeños, a mí lo hicisteis."</p>
-                    <span className="text-xs font-semibold text-blue-700 block mt-2">— Mateo 25:40</span>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <button onClick={() => setSeccion('comunidades')} className="p-6 bg-slate-50 border border-gray-200 rounded-xl hover:shadow-md transition text-left group">
-                      <div className="text-2xl mb-2 group-hover:scale-110 transition-transform">📍</div>
-                      <div className="font-bold text-slate-800">Comunidades</div>
-                      <div className="text-xs text-gray-500">Censo y necesidades</div>
-                    </button>
-                    <button onClick={() => setSeccion('tickets')} className="p-6 bg-slate-50 border border-gray-200 rounded-xl hover:shadow-md transition text-left group">
-                      <div className="text-2xl mb-2 group-hover:scale-110 transition-transform">🎟️</div>
-                      <div className="font-bold text-slate-800">Tickets</div>
-                      <div className="text-xs text-gray-500">Casos en curso</div>
-                    </button>
-                    <button onClick={() => setSeccion('inventario')} className="p-6 bg-slate-50 border border-gray-200 rounded-xl hover:shadow-md transition text-left group">
-                      <div className="text-2xl mb-2 group-hover:scale-110 transition-transform">📦</div>
-                      <div className="font-bold text-slate-800">Inventario</div>
-                      <div className="text-xs text-gray-500">Insumos actuales</div>
-                    </button>
-                  </div>
-                </div>
+              <div className="max-w-4xl bg-white p-8 rounded-xl shadow-sm border">
+                <h2 className="text-3xl font-bold text-slate-800 mb-4">Bienvenidos</h2>
+                <p className="text-gray-600">Fundación Ruah: Servicio voluntario y transparente.</p>
               </div>
             )}
 
-            {/* COMUNIDADES */}
             {seccion === 'comunidades' && (
               <div className="space-y-6">
                 <div className="flex justify-between items-center">
-                  <div>
-                    <h2 className="text-2xl font-bold text-slate-800">Gestión de Comunidades</h2>
-                    <p className="text-xs text-gray-500">Censo poblacional y gestión de recursos</p>
-                  </div>
-                  {esAdmin && (
-                    <button onClick={() => setMostrarModalComunidad(true)} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm">
-                      + Agregar Comunidad
-                    </button>
-                  )}
+                  <h2 className="text-2xl font-bold">Comunidades</h2>
+                  {esAdmin && <button onClick={() => setModales({...modales, comunidad: true})} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm">+ Nueva Comunidad</button>}
                 </div>
-
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {comunidades.map(c => (
-                    <div key={c.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                      <div className="p-5 border-b bg-slate-50 flex justify-between items-center">
-                        <h3 className="font-bold text-lg text-slate-800">{c.nombre_comunidad}</h3>
-                        <span className="text-[10px] bg-blue-100 text-blue-800 px-2 py-1 rounded font-bold uppercase tracking-wider">Censo Activo</span>
-                      </div>
-                      <div className="p-5 space-y-4">
-                        <div className="grid grid-cols-2 gap-4 text-xs text-gray-600">
-                          <div>
-                            <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Representante</p>
-                            <p className="font-medium text-slate-800">{c.nombre_representante}</p>
-                            <p>{c.telefono_rep} | CI: {c.cedula}</p>
-                          </div>
-                          <div>
-                            <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Responsable Ruah</p>
-                            <p className="font-medium text-slate-800">{c.nombre_encargado_ruah}</p>
-                            <p>{c.telefono_encargado}</p>
-                          </div>
-                        </div>
-
-                        <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
-                          <p className="text-[9px] font-bold text-gray-400 uppercase mb-2 border-b pb-1">Censo Poblacional</p>
-                          <div className="grid grid-cols-3 gap-2 text-center">
-                            <div className="p-1"><p className="text-[10px] text-gray-400">Adultos</p><p className="font-bold text-sm">{c.adultos}</p></div>
-                            <div className="p-1"><p className="text-[10px] text-gray-400">Mayores</p><p className="font-bold text-sm">{c.adultos_mayores}</p></div>
-                            <div className="p-1"><p className="text-[10px] text-gray-400">Niños</p><p className="font-bold text-sm">{c.ninos}</p></div>
-                            <div className="p-1"><p className="text-[10px] text-gray-400">Adoles.</p><p className="font-bold text-sm">{c.adolescentes}</p></div>
-                            <div className="p-1"><p className="text-[10px] text-gray-400">Embar.</p><p className="font-bold text-sm">{c.embarazadas}</p></div>
-                            <div className="p-1"><p className="text-[10px] text-gray-400">Bebés</p><p className="font-bold text-sm">{c.bebes}</p></div>
-                          </div>
-                          {c.casos_especificos && <p className="mt-2 text-[10px] text-slate-600 bg-white p-2 rounded border italic">Obs: {c.casos_especificos}</p>}
-                        </div>
-
-                        {c.mapa_url && (
-                          <div className="w-full h-32 rounded-lg overflow-hidden border">
-                            <iframe src={c.mapa_url} className="w-full h-full border-0" allowFullScreen loading="lazy"></iframe>
-                          </div>
-                        )}
-
-                        <button 
-                          onClick={() => { setComunidadSeleccionada(c); obtenerNecesidades(c.id); setVistaNecesidades('menu'); setMostrarModalNecesidades(true); }}
-                          className="w-full py-2.5 bg-slate-800 text-white rounded-lg text-sm font-semibold hover:bg-slate-900 transition shadow-sm"
-                        >
-                          📋 Lista de Necesidades
-                        </button>
-                      </div>
-                    </div>
+                  {data.comunidades.map(c => (
+                    <ComunidadCard key={c.id} c={c} 
+                      onEditarCenso={(com) => { setSelección({...selección, comu: com}); setModales({...modales, censo: true}); }}
+                      onNecesidades={async (com) => { 
+                        setSelección({...selección, comu: com}); 
+                        const n = await RuahAPI.necesidades.fetch(com.id);
+                        setSelección(prev => ({...prev, nece: n, comu: com}));
+                        setModales({...modales, necesidades: true}); setVistaNece('ver');
+                      }} 
+                    />
                   ))}
                 </div>
               </div>
             )}
 
-            {/* TICKETS */}
             {seccion === 'tickets' && (
               <div className="space-y-6">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                  <div>
-                    <h2 className="text-2xl font-bold text-slate-800">Solicitudes y Casos</h2>
-                    <p className="text-xs text-gray-500">Tickets de atención comunitaria y cola organizada</p>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
-                    <div className="flex items-center gap-2 bg-white border border-gray-300 px-3 py-1.5 rounded-lg shadow-sm">
-                      <span className="text-xs font-medium text-gray-600">📅 Fecha:</span>
-                      <input type="date" value={fechaFiltro} onChange={(e) => setFechaFiltro(e.target.value)} className="text-xs border-0 outline-none text-slate-800 bg-transparent cursor-pointer" />
-                    </div>
-                    <button onClick={() => setMostrarModal(true)} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm">+ Registrar Caso / Ticket</button>
-                  </div>
+                <div className="flex justify-between items-center">
+                  <h2 className="text-2xl font-bold">Tickets y Casos</h2>
+                  <button onClick={() => setModales({...modales, ticket: true})} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm">+ Registrar Caso</button>
                 </div>
-
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {['Por revisión', 'Atendiendo', 'Entregado'].map((estadoCol) => (
-                    <div key={estadoCol} className="bg-gray-50 p-4 rounded-xl border border-gray-200">
-                      <h3 className={`font-semibold mb-3 flex items-center gap-2 ${estadoCol === 'Por revisión' ? 'text-amber-700' : estadoCol === 'Atendiendo' ? 'text-blue-700' : 'text-emerald-700'}`}>
-                        {estadoCol}
-                      </h3>
+                  {['Por revisión', 'Atendiendo', 'Entregado'].map(est => (
+                    <div key={est} className="bg-gray-50 p-4 rounded-xl border">
+                      <h3 className="font-bold mb-4 text-xs uppercase text-gray-500">{est}</h3>
                       <div className="space-y-3">
-                        {ticketsFiltrados.filter(t => t.estado === estadoCol).map(t => (
-                          <div key={t.id} className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 space-y-2">
-                            <div className="flex justify-between items-start">
-                              <span className="text-[10px] font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">{t.departamento}</span>
-                              <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${t.fue_verificado === 'Sí' ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-600'}`}>
-                                {t.fue_verificado === 'Sí' ? '✓ Verificado' : 'Sin verificar'}
-                              </span>
-                            </div>
-                            <h4 className="font-bold text-sm text-gray-800">{t.situacion_caso || t.comunidad}</h4>
-                            <p className="text-xs text-gray-500 font-medium">📍 {t.ciudad ? `${t.ciudad} - ` : ''}{t.comunidad}</p>
-                            <p className="text-xs text-gray-600 leading-relaxed bg-gray-50 p-2 rounded">{t.descripcion}</p>
-                            <div className="flex items-center gap-1.5 text-[11px] font-medium text-amber-800 bg-amber-50 px-2 sm:px-2.5 py-1 rounded border border-amber-200/60 w-fit">
-                              <span>⏱️</span>
-                              <span>Tiempo en <strong>{estadoCol}</strong>: {calcularTiempoTranscurrido(t.created_at)}</span>
-                            </div>
-                            <div className="text-[11px] text-gray-500 pt-2 border-t space-y-1">
-                              {t.persona_contacto && <p>👤 <strong>Contacto:</strong> {t.persona_contacto} {t.telefono_contacto ? `(${t.telefono_contacto})` : ''}</p>}
-                              {t.responsable_seguimiento && <p>📋 <strong>Responsable:</strong> {t.responsable_seguimiento} {t.telefono_responsable ? `(${t.telefono_responsable})` : ''}</p>}
-                              <p className="text-[10px] text-gray-400">Registrado por: {t.nombre_voluntario} {t.apellido_voluntario}</p>
-                            </div>
-                            {esAdmin && (
-                              <div className="pt-2 flex flex-wrap gap-1 border-t border-gray-100">
-                                {estadoCol !== 'Por revisión' && <button onClick={() => cambiarEstadoTicket(t.id, 'Por revisión')} className="text-[10px] bg-amber-100 text-amber-800 px-2 py-1 rounded">Revisión</button>}
-                                {estadoCol !== 'Atendiendo' && <button onClick={() => cambiarEstadoTicket(t.id, 'Atendiendo')} className="text-[10px] bg-blue-100 text-blue-800 px-2 py-1 rounded">Atender</button>}
-                                {estadoCol !== 'Entregado' && <button onClick={() => cambiarEstadoTicket(t.id, 'Entregado')} className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-1 rounded">Entregado</button>}
-                              </div>
-                            )}
-                          </div>
-                        ))}
+                        {data.tickets.filter(t => t.estado === est).map(t => <TicketCard key={t.id} t={t} esAdmin={esAdmin} onCambiarEstado={async (id, e) => { await RuahAPI.tickets.updateEstado(id, e); refresh(); }} />)}
                       </div>
                     </div>
                   ))}
@@ -553,232 +271,115 @@
               </div>
             )}
 
-            {/* INVENTARIO */}
-            {seccion === 'inventario' && (
-              <div className="space-y-6">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div>
-                    <h2 className="text-2xl font-bold text-slate-800">Inventario General</h2>
-                    <p className="text-xs text-gray-500">Recursos ordenados alfabéticamente</p>
+            {/* MODAL LOGIN */}
+            {modales.login && (
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                <div className="bg-white p-6 rounded-xl shadow-2xl w-full max-w-xs text-center">
+                  <h3 className="font-bold mb-4">Acceso Admin</h3>
+                  <input type="password" id="adminPass" className="w-full border rounded p-2 mb-4 text-center" placeholder="Clave" />
+                  <div className="flex gap-2">
+                    <button onClick={() => setModales({...modales, login: false})} className="flex-1 text-gray-400">Cerrar</button>
+                    <button onClick={() => handleLogin(document.getElementById('adminPass').value)} className="flex-1 bg-slate-900 text-white py-2 rounded">Entrar</button>
                   </div>
-                  <div className="relative w-full sm:w-72">
-                    <input type="text" placeholder="🔍 Buscar recurso o insumo..." value={busquedaInventario} onChange={(e) => { setBusquedaInventario(e.target.value); setPaginaInventario(1); }} className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm" />
-                  </div>
-                </div>
-
-                {esAdmin && (
-                  <form onSubmit={agregarInventario} className="bg-blue-50 p-4 rounded-xl border border-blue-200 flex flex-col md:flex-row gap-3 items-end">
-                    <div className="flex-1">
-                      <label className="text-xs font-semibold text-blue-900">Insumo / Recurso</label>
-                      <input type="text" required placeholder="Ej: Sacos de Arroz" value={nuevoItem.item} onChange={e => setNuevoItem({...nuevoItem, item: e.target.value})} className="w-full border rounded p-2 text-sm mt-1" />
-                    </div>
-                    <div className="w-24">
-                      <label className="text-xs font-semibold text-blue-900">Cantidad</label>
-                      <input type="number" required min="1" value={nuevoItem.cantidad} onChange={e => setNuevoItem({...nuevoItem, cantidad: parseInt(e.target.value)})} className="w-full border rounded p-2 text-sm mt-1" />
-                    </div>
-                    <button type="submit" className="bg-blue-600 text-white text-sm px-4 py-2 rounded font-medium hover:bg-blue-700">Agregar al Inventario</button>
-                  </form>
-                )}
-
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                  <table className="w-full text-left text-sm">
-                    <thead className="bg-gray-50 border-b text-gray-600">
-                      <tr>
-                        <th className="p-4">Recurso / Insumo</th>
-                        <th className="p-4">Estado de Disponibilidad</th>
-                        {esAdmin && <th className="p-4 text-right">Acciones</th>}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y">
-                      {inventarioPaginado.length > 0 ? (
-                        inventarioPaginado.map(item => (
-                          <tr key={item.id} className="hover:bg-gray-50/50 transition">
-                            <td className="p-4 font-medium text-gray-800">{item.item}</td>
-                            <td className="p-4">
-                              <div className="flex items-center gap-2">
-                                {item.cantidad > 2 ? (
-                                  <span className="bg-emerald-100 text-emerald-800 font-semibold px-3 py-1 rounded-full text-xs inline-flex items-center gap-1">
-                                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span>Disponible
-                                  </span>
-                                ) : (
-                                  <span className="bg-red-100 text-red-800 font-semibold px-3 py-1 rounded-full text-xs inline-flex items-center gap-1">
-                                    <span className="w-2 h-2 rounded-full bg-red-500"></span>No disponible
-                                  </span>
-                                )}
-                                {esAdmin && <span className="text-xs text-gray-500 font-mono bg-gray-100 px-2 py-0.5 rounded border border-gray-200 ml-2">({item.cantidad} unidades)</span>}
-                              </div>
-                            </td>
-                            {esAdmin && (
-                              <td className="p-4 text-right">
-                                <button onClick={() => eliminarItemInventario(item.id)} className="text-red-500 hover:text-red-700 text-xs font-medium">Eliminar</button>
-                              </td>
-                            )}
-                          </tr>
-                        ))
-                      ) : (
-                        <tr><td colSpan={esAdmin ? 3 : 2} className="p-8 text-center text-gray-500 text-xs">No se encontraron resultados.</td></tr>
-                      )}
-                    </tbody>
-                  </table>
-                  {totalPaginasInventario > 1 && (
-                    <div className="bg-gray-50 px-4 py-3 border-t flex items-center justify-between text-xs text-gray-600">
-                      <span>Página {paginaInventario} de {totalPaginasInventario}</span>
-                      <div className="flex gap-1">
-                        <button onClick={() => setPaginaInventario(prev => Math.max(prev - 1, 1))} disabled={paginaInventario === 1} className="px-3 py-1 bg-white border rounded disabled:opacity-40 font-medium">◀ Anterior</button>
-                        <button onClick={() => setPaginaInventario(prev => Math.min(prev + 1, totalPaginasInventario))} disabled={paginaInventario === totalPaginasInventario} className="px-3 py-1 bg-white border rounded disabled:opacity-40 font-medium">Siguiente ▶</button>
-                      </div>
-                    </div>
-                  )}
                 </div>
               </div>
             )}
 
-            {/* MODAL TICKET */}
-            {mostrarModal && (
-              <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto">
-                <div className="bg-white rounded-xl p-6 w-full max-w-lg space-y-4 my-8 shadow-2xl">
-                  <h3 className="text-xl font-bold text-slate-800 border-b pb-2">Registrar Nuevo Ticket / Caso</h3>
-                  <form onSubmit={guardarTicket} className="space-y-3">
-                    <div className="bg-gray-50 p-3 rounded-lg space-y-2 border">
-                      <p className="text-xs font-bold text-gray-700">Datos del Voluntario Registrante</p>
-                      <div className="grid grid-cols-2 gap-2">
-                        <input type="text" required placeholder="Nombre voluntario *" value={nuevoTicket.nombre_voluntario} onChange={e => setNuevoTicket({...nuevoTicket, nombre_voluntario: e.target.value})} className="border rounded p-2 text-sm" />
-                        <input type="text" placeholder="Apellido voluntario" value={nuevoTicket.apellido_voluntario} onChange={e => setNuevoTicket({...nuevoTicket, apellido_voluntario: e.target.value})} className="border rounded p-2 text-sm" />
-                      </div>
-                    </div>
-                    <input type="text" required placeholder="Situación o Caso (Título breve) *" value={nuevoTicket.situacion_caso} onChange={e => setNuevoTicket({...nuevoTicket, situacion_caso: e.target.value})} className="w-full border rounded p-2 text-sm" />
-                    <div className="grid grid-cols-2 gap-2">
-                      <input type="text" required placeholder="Ciudad *" value={nuevoTicket.ciudad} onChange={e => setNuevoTicket({...nuevoTicket, ciudad: e.target.value})} className="border rounded p-2 text-sm" />
-                      <input type="text" required placeholder="Lugar / Sector / Comunidad *" value={nuevoTicket.comunidad} onChange={e => setNuevoTicket({...nuevoTicket, comunidad: e.target.value})} className="border rounded p-2 text-sm" />
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <select value={nuevoTicket.departamento} onChange={e => setNuevoTicket({...nuevoTicket, departamento: e.target.value})} className="border rounded p-2 text-sm">
-                        <option>Departamento de Logística</option>
-                        <option>Departamento de Transporte</option>
-                        <option>Departamento de Comida</option>
-                        <option>Departamento Inversionistas</option>
-                        <option>Departamento de Traductores</option>
-                      </select>
-                      <select value={nuevoTicket.fue_verificado} onChange={e => setNuevoTicket({...nuevoTicket, fue_verificado: e.target.value})} className="border rounded p-2 text-sm">
-                        <option value="No">¿Fue Verificado? No</option>
-                        <option value="Sí">¿Fue Verificado? Sí</option>
-                      </select>
-                    </div>
-                    <textarea required placeholder="Detalle completo de la solicitud..." value={nuevoTicket.descripcion} onChange={e => setNuevoTicket({...nuevoTicket, descripcion: e.target.value})} className="w-full border rounded p-2 text-sm" rows="3"></textarea>
-                    <div className="grid grid-cols-2 gap-2">
-                      <input type="text" placeholder="Persona de contacto" value={nuevoTicket.persona_contacto} onChange={e => setNuevoTicket({...nuevoTicket, persona_contacto: e.target.value})} className="border rounded p-2 text-sm" />
-                      <input type="text" placeholder="Móvil contacto" value={nuevoTicket.telefono_contacto} onChange={e => setNuevoTicket({...nuevoTicket, telefono_contacto: e.target.value})} className="border rounded p-2 text-sm" />
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <input type="text" placeholder="Responsable seguimiento" value={nuevoTicket.responsable_seguimiento} onChange={e => setNuevoTicket({...nuevoTicket, responsable_seguimiento: e.target.value})} className="border rounded p-2 text-sm" />
-                      <input type="text" placeholder="Móvil responsable" value={nuevoTicket.telefono_responsable} onChange={e => setNuevoTicket({...nuevoTicket, telefono_responsable: e.target.value})} className="border rounded p-2 text-sm" />
-                    </div>
-                    <div className="flex justify-end gap-2 pt-2 border-t">
-                      <button type="button" onClick={() => setMostrarModal(false)} className="px-4 py-2 text-xs text-gray-500">Cancelar</button>
-                      <button type="submit" disabled={cargando} className="px-4 py-2 text-xs bg-blue-600 text-white rounded font-medium disabled:bg-gray-400">{cargando ? 'Verificando...' : 'Guardar Ticket'}</button>
+            {/* MODAL NUEVA COMUNIDAD (Solo Admin) */}
+            {modales.comunidad && (
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+                <div className="bg-white p-6 rounded-xl shadow-2xl w-full max-w-md my-8">
+                  <h3 className="font-bold text-xl mb-4">Nueva Comunidad</h3>
+                  <form onSubmit={async (e) => {
+                    e.preventDefault();
+                    const form = new FormData(e.target);
+                    const comu = Object.fromEntries(form.entries());
+                    await RuahAPI.comunidades.save(comu);
+                    setModales({...modales, comunidad: false}); refresh();
+                  }} className="space-y-3">
+                    <input name="nombre_comunidad" required placeholder="Nombre Comunidad" className="w-full border rounded p-2 text-sm" />
+                    <input name="nombre_representante" required placeholder="Representante" className="w-full border rounded p-2 text-sm" />
+                    <input name="telefono_rep" required placeholder="Teléfono Rep." className="w-full border rounded p-2 text-sm" />
+                    <input name="nombre_encargado_ruah" required placeholder="Encargado Ruah" className="w-full border rounded p-2 text-sm" />
+                    <div className="flex gap-2 justify-end pt-2">
+                      <button type="button" onClick={() => setModales({...modales, comunidad: false})} className="text-gray-400 px-4">Cancelar</button>
+                      <button type="submit" className="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold">Registrar</button>
                     </div>
                   </form>
                 </div>
               </div>
             )}
 
-            {/* MODAL COMUNIDAD */}
-            {mostrarModalComunidad && (
-              <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto">
-                <div className="bg-white rounded-xl p-6 w-full max-w-2xl my-8 shadow-2xl">
-                  <div className="flex justify-between items-center mb-6 border-b pb-4">
-                    <h3 className="text-xl font-bold text-slate-800">Registrar Comunidad y Censo</h3>
-                    <button onClick={() => setMostrarModalComunidad(false)} className="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
-                  </div>
-                  <form onSubmit={guardarComunidad} className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-3 bg-gray-50 p-4 rounded-lg border border-gray-200">
-                        <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">Datos de Contacto</p>
-                        <input type="text" required placeholder="Nombre Representante" className="w-full border rounded p-2 text-sm bg-white" value={nuevaComunidad.nombre_representante} onChange={e => setNuevaComunidad({...nuevaComunidad, nombre_representante: e.target.value})} />
-                        <input type="text" required placeholder="Cédula" className="w-full border rounded p-2 text-sm bg-white" value={nuevaComunidad.cedula} onChange={e => setNuevaComunidad({...nuevaComunidad, cedula: e.target.value})} />
-                        <input type="text" required placeholder="Teléfono" className="w-full border rounded p-2 text-sm bg-white" value={nuevaComunidad.telefono_rep} onChange={e => setNuevaComunidad({...nuevaComunidad, telefono_rep: e.target.value})} />
-                        <hr className="border-gray-200"/>
-                        <input type="text" required placeholder="Encargado Proyecto Ruah" className="w-full border rounded p-2 text-sm bg-white" value={nuevaComunidad.nombre_encargado_ruah} onChange={e => setNuevaComunidad({...nuevaComunidad, nombre_encargado_ruah: e.target.value})} />
-                        <input type="text" required placeholder="Teléfono Encargado" className="w-full border rounded p-2 text-sm bg-white" value={nuevaComunidad.telefono_encargado} onChange={e => setNuevaComunidad({...nuevaComunidad, telefono_encargado: e.target.value})} />
-                      </div>
-                      <div className="space-y-3 bg-gray-50 p-4 rounded-lg border border-gray-200">
-                        <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">Información Comunidad</p>
-                        <input type="text" required placeholder="Nombre Comunidad" className="w-full border rounded p-2 text-sm bg-white" value={nuevaComunidad.nombre_comunidad} onChange={e => setNuevaComunidad({...nuevaComunidad, nombre_comunidad: e.target.value})} />
-                        <input type="text" required placeholder="Dirección Escrita" className="w-full border rounded p-2 text-sm bg-white" value={nuevaComunidad.direccion} onChange={e => setNuevaComunidad({...nuevaComunidad, direccion: e.target.value})} />
-                        <input type="text" placeholder="Iframe Mapa (URL SRC)" className="w-full border rounded p-2 text-sm bg-white" value={nuevaComunidad.mapa_url} onChange={e => setNuevaComunidad({...nuevaComunidad, mapa_url: e.target.value})} />
-                        <div className="grid grid-cols-3 gap-2">
-                          <div className="text-center"><label className="text-[9px] text-gray-500 uppercase">Adultos</label><input type="number" className="w-full border rounded p-1 text-xs" value={nuevaComunidad.adultos} onChange={e => setNuevaComunidad({...nuevaComunidad, adultos: e.target.value})} /></div>
-                          <div className="text-center"><label className="text-[9px] text-gray-500 uppercase">Mayores</label><input type="number" className="w-full border rounded p-1 text-xs" value={nuevaComunidad.adultos_mayores} onChange={e => setNuevaComunidad({...nuevaComunidad, adultos_mayores: e.target.value})} /></div>
-                          <div className="text-center"><label className="text-[9px] text-gray-500 uppercase">Niños</label><input type="number" className="w-full border rounded p-1 text-xs" value={nuevaComunidad.ninos} onChange={e => setNuevaComunidad({...nuevaComunidad, ninos: e.target.value})} /></div>
-                        </div>
-                        <div className="grid grid-cols-3 gap-2">
-                          <div className="text-center"><label className="text-[9px] text-gray-500 uppercase">Adoles.</label><input type="number" className="w-full border rounded p-1 text-xs" value={nuevaComunidad.adolescentes} onChange={e => setNuevaComunidad({...nuevaComunidad, adolescentes: e.target.value})} /></div>
-                          <div className="text-center"><label className="text-[9px] text-gray-500 uppercase">Embar.</label><input type="number" className="w-full border rounded p-1 text-xs" value={nuevaComunidad.embarazadas} onChange={e => setNuevaComunidad({...nuevaComunidad, embarazadas: e.target.value})} /></div>
-                          <div className="text-center"><label className="text-[9px] text-gray-500 uppercase">Bebés</label><input type="number" className="w-full border rounded p-1 text-xs" value={nuevaComunidad.bebes} onChange={e => setNuevaComunidad({...nuevaComunidad, bebes: e.target.value})} /></div>
-                        </div>
-                      </div>
+            {/* MODAL EDITAR CENSO */}
+            {modales.censo && (
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                <div className="bg-white p-6 rounded-xl shadow-2xl w-full max-w-sm">
+                  <h3 className="font-bold mb-4">Editar Censo: {selección.comu?.nombre_comunidad}</h3>
+                  <form onSubmit={async (e) => {
+                    e.preventDefault();
+                    const form = new FormData(e.target);
+                    const censo = Object.fromEntries(form.entries());
+                    await RuahAPI.comunidades.updateCenso(selección.comu.id, censo);
+                    setModales({...modales, censo: false}); refresh();
+                  }} className="grid grid-cols-2 gap-3">
+                    {['adultos', 'ninos', 'embarazadas', 'adolescentes', 'bebes', 'adultos_mayores'].map(f => (
+                      <div key={f}><label className="text-[10px] uppercase font-bold text-gray-400">{f.replace('_',' ')}</label>
+                      <input name={f} type="number" defaultValue={selección.comu?.[f] || 0} className="w-full border rounded p-1 text-sm" /></div>
+                    ))}
+                    <div className="col-span-2 pt-4 flex gap-2">
+                      <button type="button" onClick={() => setModales({...modales, censo: false})} className="flex-1 text-gray-400">Volver</button>
+                      <button type="submit" className="flex-1 bg-blue-600 text-white py-2 rounded font-bold">Actualizar</button>
                     </div>
-                    <textarea placeholder="Casos específicos / Observaciones..." className="w-full border rounded p-2 text-sm" rows="3" value={nuevaComunidad.casos_especificos} onChange={e => setNuevaComunidad({...nuevaComunidad, casos_especificos: e.target.value})}></textarea>
-                    <button type="submit" className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 transition shadow-lg">Registrar Comunidad y Censo</button>
                   </form>
                 </div>
               </div>
             )}
 
             {/* MODAL NECESIDADES */}
-            {mostrarModalNecesidades && (
-              <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-                <div className="bg-white rounded-xl w-full max-w-md overflow-hidden shadow-2xl">
-                  <div className="p-4 bg-slate-900 text-white flex justify-between items-center">
-                    <h3 className="font-bold text-sm">Necesidades: {comunidadSeleccionada?.nombre_comunidad}</h3>
-                    <button onClick={() => setMostrarModalNecesidades(false)} className="text-white/70 hover:text-white">&times;</button>
+            {modales.necesidades && (
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
+                  <div className="p-4 bg-slate-900 text-white flex justify-between">
+                    <h3 className="font-bold text-sm">Necesidades: {selección.comu?.nombre_comunidad}</h3>
+                    <button onClick={() => setModales({...modales, necesidades: false})}>&times;</button>
                   </div>
-                  <div className="flex border-b bg-gray-50">
-                    <button onClick={() => setVistaNecesidades('ver')} className={`flex-1 py-3 text-sm font-bold ${vistaNecesidades === 'ver' ? 'border-b-2 border-blue-600 text-blue-600 bg-white' : 'text-gray-500'}`}>Ver Lista</button>
-                    <button onClick={() => setVistaNecesidades('agregar')} className={`flex-1 py-3 text-sm font-bold ${vistaNecesidades === 'agregar' ? 'border-b-2 border-blue-600 text-blue-600 bg-white' : 'text-gray-500'}`}>+ Agregar</button>
+                  <div className="flex border-b text-xs font-bold bg-gray-50">
+                    <button onClick={() => setVistaNece('ver')} className={`flex-1 py-3 ${vistaNece === 'ver' ? 'bg-white text-blue-600 border-b-2 border-blue-600' : 'text-gray-400'}`}>Ver Lista</button>
+                    <button onClick={() => setVistaNece('agregar')} className={`flex-1 py-3 ${vistaNece === 'agregar' ? 'bg-white text-blue-600 border-b-2 border-blue-600' : 'text-gray-400'}`}>+ Agregar</button>
                   </div>
                   <div className="p-4 max-h-[400px] overflow-y-auto">
-                    {vistaNecesidades === 'ver' ? (
+                    {vistaNece === 'ver' ? (
                       <div className="space-y-3">
-                        {necesidades.length > 0 ? necesidades.map(n => (
+                        {selección.nece.map(n => (
                           <div key={n.id} className="p-3 border rounded-lg bg-gray-50 flex justify-between items-center">
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <span className="font-bold text-slate-800 text-sm">{n.insumo}</span>
-                                {n.colaborador && <div className="w-2.5 h-2.5 bg-red-600 rounded-full shadow-sm animate-pulse"></div>}
-                              </div>
-                              <p className="text-[10px] text-gray-500">Para: {n.nombre_persona}</p>
-                              {n.colaborador && <p className="text-[9px] text-blue-700 font-medium">Asignado: {n.colaborador.nombre}</p>}
-                            </div>
-                            {!n.colaborador ? (
-                              <button onClick={() => { setNecesidadActiva(n); setVistaNecesidades('colaborar'); }} className="text-[10px] bg-blue-600 text-white px-2 py-1 rounded font-bold shadow-sm">Colaborar</button>
-                            ) : (
-                              <span className="text-[9px] font-bold text-gray-400 bg-gray-100 px-2 py-1 rounded">Asignado</span>
-                            )}
+                            <div><p className="font-bold text-sm">{n.insumo}</p><p className="text-[10px] text-gray-400">Para: {n.nombre_persona}</p></div>
+                            {!n.colaborador ? <button onClick={() => { setSelección({...selección, acti: n}); setVistaNece('colaborar'); }} className="text-[10px] bg-blue-600 text-white px-2 py-1 rounded">Colaborar</button> : <span className="text-[9px] font-bold text-emerald-600">Asignado</span>}
                           </div>
-                        )) : <p className="text-center text-gray-400 py-8 text-sm italic">No hay necesidades registradas.</p>}
+                        ))}
                       </div>
-                    ) : vistaNecesidades === 'agregar' ? (
-                      <form onSubmit={guardarNecesidad} className="space-y-3">
-                        <input type="text" required placeholder="Insumo necesario" className="w-full border rounded p-2 text-sm" value={nuevaNecesidad.insumo} onChange={e => setNuevaNecesidad({...nuevaNecesidad, insumo: e.target.value})} />
-                        <input type="text" required placeholder="Nombre del beneficiario" className="w-full border rounded p-2 text-sm" value={nuevaNecesidad.nombre_persona} onChange={e => setNuevaNecesidad({...nuevaNecesidad, nombre_persona: e.target.value})} />
-                        <textarea placeholder="Nota opcional..." className="w-full border rounded p-2 text-sm" rows="2" value={nuevaNecesidad.nota} onChange={e => setNuevaNecesidad({...nuevaNecesidad, nota: e.target.value})}></textarea>
-                        <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded-lg font-bold text-sm shadow">Guardar Necesidad</button>
+                    ) : vistaNece === 'agregar' ? (
+                      <form onSubmit={async (e) => {
+                        e.preventDefault();
+                        const n = { insumo: e.target.insumo.value, nombre_persona: e.target.nombre.value, comunidad_id: selección.comu.id };
+                        await RuahAPI.necesidades.save(n);
+                        const list = await RuahAPI.necesidades.fetch(selección.comu.id);
+                        setSelección({...selección, nece: list}); setVistaNece('ver');
+                      }} className="space-y-3">
+                        <input name="insumo" required placeholder="Insumo" className="w-full border rounded p-2 text-sm" />
+                        <input name="nombre" required placeholder="Beneficiario" className="w-full border rounded p-2 text-sm" />
+                        <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded font-bold">Guardar</button>
                       </form>
                     ) : (
-                      <form onSubmit={registrarColaboracion} className="space-y-3">
-                        <button onClick={() => setVistaNecesidades('ver')} className="text-[10px] text-blue-600 font-bold uppercase mb-2 block">← Volver</button>
-                        <p className="text-xs font-medium text-slate-600 mb-3">Colaborar con: <span className="font-bold">{necesidadActiva?.insumo}</span></p>
-                        <input type="text" required placeholder="Tu Nombre" className="w-full border rounded p-2 text-sm" value={colaborador.nombre} onChange={e => setColaborador({...colaborador, nombre: e.target.value})} />
-                        <input type="text" required placeholder="Tu Teléfono" className="w-full border rounded p-2 text-sm" value={colaborador.telefono} onChange={e => setColaborador({...colaborador, telefono: e.target.value})} />
-                        <div className="space-y-1">
-                          <label className="text-[10px] font-bold text-gray-500 uppercase">¿Eres voluntario Ruah?</label>
-                          <select className="w-full border rounded p-2 text-sm" value={colaborador.es_voluntario} onChange={e => setColaborador({...colaborador, es_voluntario: e.target.value})}>
-                            <option value="No">No</option>
-                            <option value="Sí">Sí</option>
-                          </select>
-                        </div>
-                        <button type="submit" className="w-full bg-emerald-600 text-white py-2 rounded-lg font-bold text-sm shadow">Confirmar Colaboración</button>
+                      <form onSubmit={async (e) => {
+                        e.preventDefault();
+                        const c = { nombre: e.target.nom.value, tel: e.target.tel.value };
+                        await RuahAPI.necesidades.colaborar(selección.acti.id, c);
+                        const list = await RuahAPI.necesidades.fetch(selección.comu.id);
+                        setSelección({...selección, nece: list}); setVistaNece('ver');
+                      }} className="space-y-3">
+                        <input name="nom" required placeholder="Tu Nombre" className="w-full border rounded p-2 text-sm" />
+                        <input name="tel" required placeholder="Tu Teléfono" className="w-full border rounded p-2 text-sm" />
+                        <button type="submit" className="w-full bg-emerald-600 text-white py-2 rounded font-bold">Confirmar</button>
                       </form>
                     )}
                   </div>
@@ -786,16 +387,26 @@
               </div>
             )}
 
-            {/* MODAL LOGIN ADMIN */}
-            {mostrarLoginAdmin && (
-              <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-                <div className="bg-white rounded-xl p-6 w-full max-w-xs space-y-4 text-center shadow-2xl">
-                  <h3 className="text-lg font-bold text-slate-800">Acceso Administrador</h3>
-                  <form onSubmit={loginAdmin} className="space-y-3">
-                    <input type="password" placeholder="Contraseña de Admin" value={passInput} onChange={e => setPassInput(e.target.value)} className="w-full border rounded p-2 text-sm text-center" />
-                    <div className="flex justify-center gap-2">
-                      <button type="button" onClick={() => setMostrarLoginAdmin(false)} className="px-3 py-1.5 text-xs text-gray-500">Cancelar</button>
-                      <button type="submit" className="px-3 py-1.5 text-xs bg-slate-900 text-white rounded font-medium">Entrar</button>
+            {/* MODAL TICKET */}
+            {modales.ticket && (
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+                <div className="bg-white p-6 rounded-xl shadow-2xl w-full max-w-lg my-8">
+                  <h3 className="font-bold text-xl border-b pb-2 mb-4">Nuevo Ticket</h3>
+                  <form onSubmit={(e) => {
+                    e.preventDefault();
+                    const f = new FormData(e.target);
+                    handleSaveTicket(Object.fromEntries(f.entries()));
+                  }} className="space-y-3">
+                    <div className="grid grid-cols-2 gap-2 bg-gray-50 p-2 rounded border">
+                      <input name="nombre_voluntario" required placeholder="Nombre Voluntario" className="p-2 border rounded text-sm" />
+                      <input name="apellido_voluntario" placeholder="Apellido Voluntario" className="p-2 border rounded text-sm" />
+                    </div>
+                    <input name="situacion_caso" required placeholder="Situación / Título" className="w-full p-2 border rounded text-sm" />
+                    <input name="comunidad" required placeholder="Lugar / Comunidad" className="w-full p-2 border rounded text-sm" />
+                    <textarea name="descripcion" required placeholder="Descripción del caso..." className="w-full p-2 border rounded text-sm" rows="3" />
+                    <div className="flex gap-2 justify-end border-t pt-4">
+                      <button type="button" onClick={() => setModales({...modales, ticket: false})} className="text-gray-400 px-4">Cerrar</button>
+                      <button type="submit" className="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold">Guardar Ticket</button>
                     </div>
                   </form>
                 </div>
@@ -807,8 +418,7 @@
       );
     }
 
-    const container = document.getElementById('root');
-    const root = ReactDOM.createRoot(container);
+    const root = ReactDOM.createRoot(document.getElementById('root'));
     root.render(<App />);
   </script>
 </body>
