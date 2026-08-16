@@ -75,6 +75,7 @@
       const [mostrarModal, setMostrarModal] = useState(false);
       const [mostrarModalComunidad, setMostrarModalComunidad] = useState(false);
       const [mostrarModalNecesidades, setMostrarModalNecesidades] = useState(false);
+      const [mostrarModalEditarCenso, setMostrarModalEditarCenso] = useState(false);
       
       // Estado de Fecha para Filtro de Tickets
       const [fechaFiltro, setFechaFiltro] = useState(() => new Date().toISOString().split('T')[0]);
@@ -91,6 +92,7 @@
 
       // Estados para Comunidades y Necesidades
       const [comunidadSeleccionada, setComunidadSeleccionada] = useState(null);
+      const [comunidadAEditar, setComunidadAEditar] = useState(null);
       const [vistaNecesidades, setVistaNecesidades] = useState('menu'); // menu, ver, agregar, colaborar
       const [necesidades, setNecesidades] = useState([]);
       const [necesidadActiva, setNecesidadActiva] = useState(null);
@@ -283,6 +285,28 @@
             nombre_comunidad: '', direccion: '', mapa_url: '', adultos: 0, adultos_mayores: 0, ninos: 0,
             adolescentes: 0, embarazadas: 0, bebes: 0, casos_especificos: ''
           });
+        }
+      };
+
+      const actualizarCenso = async (e) => {
+        e.preventDefault();
+        setCargando(true);
+        const { error } = await db.from('comunidades').update({
+          adultos: comunidadAEditar.adultos,
+          adultos_mayores: comunidadAEditar.adultos_mayores,
+          ninos: comunidadAEditar.ninos,
+          adolescentes: comunidadAEditar.adolescentes,
+          embarazadas: comunidadAEditar.embarazadas,
+          bebes: comunidadAEditar.bebes,
+          casos_especificos: comunidadAEditar.casos_especificos
+        }).eq('id', comunidadAEditar.id);
+
+        setCargando(false);
+        if (error) alert("Error: " + error.message);
+        else {
+          alert("¡Censo actualizado con éxito!");
+          setMostrarModalEditarCenso(false);
+          obtenerComunidades();
         }
       };
 
@@ -481,12 +505,20 @@
                           </div>
                         )}
 
-                        <button 
-                          onClick={() => { setComunidadSeleccionada(c); obtenerNecesidades(c.id); setVistaNecesidades('menu'); setMostrarModalNecesidades(true); }}
-                          className="w-full py-2.5 bg-slate-800 text-white rounded-lg text-sm font-semibold hover:bg-slate-900 transition shadow-sm"
-                        >
-                          📋 Lista de Necesidades
-                        </button>
+                        <div className="grid grid-cols-2 gap-2">
+                           <button 
+                            onClick={() => { setComunidadAEditar({...c}); setMostrarModalEditarCenso(true); }}
+                            className="w-full py-2.5 bg-amber-600 text-white rounded-lg text-sm font-semibold hover:bg-amber-700 transition shadow-sm"
+                          >
+                            ✏️ Actualizar Censo
+                          </button>
+                          <button 
+                            onClick={() => { setComunidadSeleccionada(c); obtenerNecesidades(c.id); setVistaNecesidades('menu'); setMostrarModalNecesidades(true); }}
+                            className="w-full py-2.5 bg-slate-800 text-white rounded-lg text-sm font-semibold hover:bg-slate-900 transition shadow-sm"
+                          >
+                            📋 Necesidades
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -683,7 +715,7 @@
               </div>
             )}
 
-            {/* MODAL COMUNIDAD */}
+            {/* MODAL COMUNIDAD NUEVA */}
             {mostrarModalComunidad && (
               <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto">
                 <div className="bg-white rounded-xl p-6 w-full max-w-2xl my-8 shadow-2xl">
@@ -721,6 +753,59 @@
                     </div>
                     <textarea placeholder="Casos específicos / Observaciones..." className="w-full border rounded p-2 text-sm" rows="3" value={nuevaComunidad.casos_especificos} onChange={e => setNuevaComunidad({...nuevaComunidad, casos_especificos: e.target.value})}></textarea>
                     <button type="submit" className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 transition shadow-lg">Registrar Comunidad y Censo</button>
+                  </form>
+                </div>
+              </div>
+            )}
+
+            {/* MODAL EDITAR CENSO COMUNIDAD EXISTENTE */}
+            {mostrarModalEditarCenso && comunidadAEditar && (
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto">
+                <div className="bg-white rounded-xl p-6 w-full max-w-lg my-8 shadow-2xl">
+                  <div className="flex justify-between items-center mb-6 border-b pb-4">
+                    <div>
+                      <h3 className="text-xl font-bold text-slate-800">Actualizar Censo Poblacional</h3>
+                      <p className="text-xs text-blue-600 font-medium">Comunidad: {comunidadAEditar.nombre_comunidad}</p>
+                    </div>
+                    <button onClick={() => setMostrarModalEditarCenso(false)} className="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+                  </div>
+                  <form onSubmit={actualizarCenso} className="space-y-6">
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 bg-gray-50 p-4 rounded-xl border">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-gray-500 uppercase px-1">Adultos</label>
+                        <input type="number" className="w-full border rounded-lg p-2 text-sm" value={comunidadAEditar.adultos} onChange={e => setComunidadAEditar({...comunidadAEditar, adultos: parseInt(e.target.value) || 0})} />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-gray-500 uppercase px-1">A. Mayores</label>
+                        <input type="number" className="w-full border rounded-lg p-2 text-sm" value={comunidadAEditar.adultos_mayores} onChange={e => setComunidadAEditar({...comunidadAEditar, adultos_mayores: parseInt(e.target.value) || 0})} />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-gray-500 uppercase px-1">Niños</label>
+                        <input type="number" className="w-full border rounded-lg p-2 text-sm" value={comunidadAEditar.ninos} onChange={e => setComunidadAEditar({...comunidadAEditar, ninos: parseInt(e.target.value) || 0})} />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-gray-500 uppercase px-1">Adolescentes</label>
+                        <input type="number" className="w-full border rounded-lg p-2 text-sm" value={comunidadAEditar.adolescentes} onChange={e => setComunidadAEditar({...comunidadAEditar, adolescentes: parseInt(e.target.value) || 0})} />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-gray-500 uppercase px-1">Embarazadas</label>
+                        <input type="number" className="w-full border rounded-lg p-2 text-sm" value={comunidadAEditar.embarazadas} onChange={e => setComunidadAEditar({...comunidadAEditar, embarazadas: parseInt(e.target.value) || 0})} />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-gray-500 uppercase px-1">Bebés</label>
+                        <input type="number" className="w-full border rounded-lg p-2 text-sm" value={comunidadAEditar.bebes} onChange={e => setComunidadAEditar({...comunidadAEditar, bebes: parseInt(e.target.value) || 0})} />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold text-gray-500 uppercase px-1">Observaciones / Casos Específicos</label>
+                      <textarea className="w-full border rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none" rows="3" value={comunidadAEditar.casos_especificos} onChange={e => setComunidadAEditar({...comunidadAEditar, casos_especificos: e.target.value})}></textarea>
+                    </div>
+                    <div className="flex gap-3 pt-2">
+                      <button type="button" onClick={() => setMostrarModalEditarCenso(false)} className="flex-1 py-3 text-gray-500 font-bold hover:bg-gray-100 rounded-lg transition">Cancelar</button>
+                      <button type="submit" disabled={cargando} className="flex-[2] bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 transition shadow-lg disabled:bg-gray-400">
+                        {cargando ? 'Guardando...' : 'Guardar Cambios'}
+                      </button>
+                    </div>
                   </form>
                 </div>
               </div>
